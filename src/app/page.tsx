@@ -1,64 +1,43 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence, useDragControls } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // Workaround: framer-motion v10 types incompatible with React 19
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const MotionDiv = motion.div as any;
 import { ACCOUNTS, AccountItem } from '@/lib/gameData';
 import confetti from 'canvas-confetti';
-import { Heart, ShieldAlert, Swords, RefreshCw, Trophy, GripHorizontal } from 'lucide-react';
+import { Heart, ShieldAlert, Swords, RefreshCw, Trophy, GripHorizontal, Clock } from 'lucide-react';
 import clsx from 'clsx';
 
 // --- COMPONENTS ---
 
-// Extend HTMLMotionProps to include drag handlers properly
 interface CardProps {
   item: AccountItem;
-  onDrop: (itemId: string, targetId: string) => void;
+  onDragStart: (e: React.DragEvent, itemId: string) => void;
 }
 
-const Card = ({ item, onDrop }: CardProps) => {
-  const controls = useDragControls();
-  
+const Card = ({ item, onDragStart }: CardProps) => {
   return (
-    <MotionDiv
-      layoutId={item.id}
-      drag
-      dragControls={controls}
-      dragSnapToOrigin={true}
-      dragElastic={0.2}
-      dragMomentum={false}
-      whileDrag={{ scale: 1.1, zIndex: 100, rotate: 2, cursor: 'grabbing' }}
-      whileHover={{ scale: 1.02, cursor: 'grab' }}
-      onDragEnd={(_event: unknown, info: { point: { x: number; y: number } }) => {
-        const dropPoint = { x: info.point.x, y: info.point.y };
-        const elements = document.elementsFromPoint(dropPoint.x, dropPoint.y);
-        const dropZone = elements.find(el => el.hasAttribute('data-drop-zone'));
-        if (dropZone) {
-          const targetId = dropZone.getAttribute('data-drop-zone');
-          if (targetId) onDrop(item.id, targetId);
-        }
-      }}
-      initial={{ opacity: 0, scale: 0.8 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.5 }}
-      className="relative p-3 rounded-lg border-2 border-slate-200 bg-white shadow-sm select-none touch-none hover:border-slate-300 active:border-amber-400 group"
+    <div
+      draggable
+      onDragStart={(e) => onDragStart(e, item.id)}
+      className="relative p-3 rounded-lg border-2 border-slate-200 bg-white shadow-sm select-none cursor-grab active:cursor-grabbing hover:border-slate-300 hover:shadow-md transition-all group"
     >
-      <div className="flex justify-between items-start pointer-events-none">
+      <div className="flex justify-between items-start">
         <div>
           <div className="font-bold text-slate-800 text-sm md:text-base leading-tight">{item.en}</div>
           <div className="text-xs text-slate-500 mt-1">{item.vi}</div>
         </div>
         <div className="flex flex-col items-end gap-1">
-            <div className="bg-slate-100 text-slate-700 font-mono text-xs md:text-sm px-2 py-1 rounded">
+          <div className="bg-slate-100 text-slate-700 font-mono text-xs md:text-sm px-2 py-1 rounded">
             ${item.val.toLocaleString()}
-            </div>
-            <GripHorizontal size={14} className="text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+          </div>
+          <GripHorizontal size={14} className="text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
         </div>
       </div>
-    </MotionDiv>
+    </div>
   );
 };
 
@@ -69,7 +48,8 @@ const Column = ({
   total, 
   colorClass, 
   bgClass,
-  borderColorClass
+  borderColorClass,
+  onDrop
 }: { 
   title: string; 
   type: string; 
@@ -78,8 +58,10 @@ const Column = ({
   colorClass: string;
   bgClass: string;
   borderColorClass: string;
+  onDrop: (cardId: string, targetType: string) => void;
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -87,13 +69,30 @@ const Column = ({
     }
   }, [items.length]);
 
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = () => setIsDragOver(false);
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const cardId = e.dataTransfer.getData('text/plain');
+    if (cardId) onDrop(cardId, type);
+  };
+
   return (
     <div 
-      // Mark this as a drop zone for our drag logic
-      data-drop-zone={type}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
       className={clsx(
-        "flex flex-col h-full rounded-xl border-t-4 bg-white shadow-sm overflow-hidden transition-colors duration-200",
-        borderColorClass
+        "flex flex-col h-full rounded-xl border-t-4 bg-white shadow-sm overflow-hidden transition-all duration-200",
+        borderColorClass,
+        isDragOver && "ring-2 ring-offset-2 ring-amber-400 scale-[1.02]"
       )}
     >
       <div className={clsx("p-3 text-center font-bold text-sm uppercase tracking-wider pointer-events-none", bgClass, colorClass)}>
@@ -150,12 +149,30 @@ export default function BalanceQuest() {
   const [shake, setShake] = useState(false);
   const [bossShake, setBossShake] = useState(false);
   const [gameState, setGameState] = useState<'playing' | 'won' | 'lost'>('playing');
+  const [timeLeft, setTimeLeft] = useState(300); // 5 minutes per stage
 
   // Init Level
   useEffect(() => {
     startLevel();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [level]);
+
+  // Countdown timer (5 min per stage)
+  useEffect(() => {
+    if (gameState !== 'playing' || timeLeft <= 0) return;
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          setGameState('lost');
+          setFeedback({ msg: "TIME'S UP! Try again!", type: 'error' });
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [gameState, timeLeft]);
 
   const startLevel = () => {
     // Generate Data
@@ -211,7 +228,13 @@ export default function BalanceQuest() {
     setBossHp(items.length);
     setMaxBossHp(items.length);
     setGameState('playing');
+    setTimeLeft(300); // Reset 5 min countdown
     setFeedback({ msg: `Level ${level} Started! Drag to play!`, type: 'neutral' });
+  };
+
+  const handleDragStart = (e: React.DragEvent, itemId: string) => {
+    e.dataTransfer.setData('text/plain', itemId);
+    e.dataTransfer.effectAllowed = 'move';
   };
 
   // Actions
@@ -319,7 +342,14 @@ export default function BalanceQuest() {
                 </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
+                <div className={clsx(
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-mono font-bold text-lg",
+                    timeLeft <= 60 ? "bg-red-100 text-red-600" : timeLeft <= 120 ? "bg-amber-100 text-amber-600" : "bg-slate-100 text-slate-700"
+                )}>
+                    <Clock size={18} />
+                    {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
+                </div>
                 <div className="flex gap-1">
                     {[...Array(maxPlayerHp)].map((_, i) => (
                         <Heart 
@@ -345,15 +375,15 @@ export default function BalanceQuest() {
                 </div>
                 
                 <div className="flex-1 overflow-y-auto space-y-3 pr-2 pb-20 scrollbar-thin relative">
-                    <AnimatePresence mode='popLayout'>
+                    <div className="space-y-3">
                         {deck.map(item => (
                             <Card 
                                 key={item.id} 
                                 item={item} 
-                                onDrop={handleDrop} 
+                                onDragStart={handleDragStart} 
                             />
                         ))}
-                    </AnimatePresence>
+                    </div>
                     {deck.length === 0 && gameState === 'playing' && (
                         <div className="text-center text-slate-400 italic mt-10">Deck Empty</div>
                     )}
@@ -368,6 +398,7 @@ export default function BalanceQuest() {
                 type="assets" 
                 items={assets} 
                 total={totalAssets} 
+                onDrop={handleDrop}
                 colorClass="text-blue-600"
                 bgClass="bg-blue-50"
                 borderColorClass="border-blue-500"
@@ -377,6 +408,7 @@ export default function BalanceQuest() {
                 type="liab" 
                 items={liab} 
                 total={totalLiab} 
+                onDrop={handleDrop}
                 colorClass="text-orange-600"
                 bgClass="bg-orange-50"
                 borderColorClass="border-orange-500"
@@ -386,6 +418,7 @@ export default function BalanceQuest() {
                 type="equity" 
                 items={equity} 
                 total={totalEquity} 
+                onDrop={handleDrop}
                 colorClass="text-emerald-600"
                 bgClass="bg-emerald-50"
                 borderColorClass="border-emerald-500"
