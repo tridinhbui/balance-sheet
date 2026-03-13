@@ -1,46 +1,73 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useDragControls, HTMLMotionProps } from 'framer-motion';
 import { ACCOUNTS, AccountItem } from '@/lib/gameData';
 import confetti from 'canvas-confetti';
-import { Heart, ShieldAlert, Swords, RefreshCw, Trophy } from 'lucide-react';
+import { Heart, ShieldAlert, Swords, RefreshCw, Trophy, GripHorizontal } from 'lucide-react';
 import clsx from 'clsx';
 
 // --- COMPONENTS ---
 
-const Card = ({ item, onClick, isSelected }: { item: AccountItem; onClick: () => void; isSelected: boolean }) => (
-  <motion.div
-    layoutId={item.id}
-    initial={{ opacity: 0, scale: 0.8 }}
-    animate={{ opacity: 1, scale: 1, borderColor: isSelected ? '#f59e0b' : '#e5e7eb', backgroundColor: isSelected ? '#fffbeb' : '#ffffff' }}
-    exit={{ opacity: 0, scale: 0.5 }}
-    whileHover={{ scale: 1.02, y: -2 }}
-    whileTap={{ scale: 0.98 }}
-    onClick={onClick}
-    className={clsx(
-      "relative p-3 rounded-lg border-2 shadow-sm cursor-pointer select-none transition-colors",
-      isSelected ? "shadow-md ring-2 ring-amber-400" : "border-gray-200 hover:border-gray-300"
-    )}
-  >
-    <div className="flex justify-between items-start">
-      <div>
-        <div className="font-bold text-gray-800 text-sm md:text-base leading-tight">{item.en}</div>
-        <div className="text-xs text-gray-500 mt-1">{item.vi}</div>
+// Extend HTMLMotionProps to include drag handlers properly
+interface CardProps {
+  item: AccountItem;
+  onDrop: (itemId: string, targetId: string) => void;
+}
+
+const Card = ({ item, onDrop }: CardProps) => {
+  const controls = useDragControls();
+  
+  return (
+    <motion.div
+      layoutId={item.id}
+      drag
+      dragControls={controls}
+      dragSnapToOrigin={true}
+      dragElastic={0.2}
+      dragMomentum={false}
+      whileDrag={{ scale: 1.1, zIndex: 100, rotate: 2, cursor: 'grabbing' }}
+      whileHover={{ scale: 1.02, cursor: 'grab' }}
+      onDragEnd={(event, info) => {
+        const dropPoint = {
+            x: info.point.x,
+            y: info.point.y
+        };
+        
+        const elements = document.elementsFromPoint(dropPoint.x, dropPoint.y);
+        const dropZone = elements.find(el => el.hasAttribute('data-drop-zone'));
+        
+        if (dropZone) {
+            const targetId = dropZone.getAttribute('data-drop-zone');
+            if (targetId) onDrop(item.id, targetId);
+        }
+      }}
+      initial={{ opacity: 0, scale: 0.8 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.5 }}
+      className="relative p-3 rounded-lg border-2 border-slate-200 bg-white shadow-sm select-none touch-none hover:border-slate-300 active:border-amber-400 group"
+    >
+      <div className="flex justify-between items-start pointer-events-none">
+        <div>
+          <div className="font-bold text-slate-800 text-sm md:text-base leading-tight">{item.en}</div>
+          <div className="text-xs text-slate-500 mt-1">{item.vi}</div>
+        </div>
+        <div className="flex flex-col items-end gap-1">
+            <div className="bg-slate-100 text-slate-700 font-mono text-xs md:text-sm px-2 py-1 rounded">
+            ${item.val.toLocaleString()}
+            </div>
+            <GripHorizontal size={14} className="text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+        </div>
       </div>
-      <div className="bg-gray-100 text-gray-700 font-mono text-xs md:text-sm px-2 py-1 rounded">
-        ${item.val.toLocaleString()}
-      </div>
-    </div>
-  </motion.div>
-);
+    </motion.div>
+  );
+};
 
 const Column = ({ 
   title, 
   type, 
   items, 
   total, 
-  onSelect, 
   colorClass, 
   bgClass,
   borderColorClass
@@ -49,7 +76,6 @@ const Column = ({
   type: string; 
   items: AccountItem[]; 
   total: number; 
-  onSelect: () => void;
   colorClass: string;
   bgClass: string;
   borderColorClass: string;
@@ -64,38 +90,39 @@ const Column = ({
 
   return (
     <div 
-      onClick={onSelect}
+      // Mark this as a drop zone for our drag logic
+      data-drop-zone={type}
       className={clsx(
-        "flex flex-col h-full rounded-xl border-t-4 bg-white shadow-sm overflow-hidden transition-all active:scale-[0.99]",
+        "flex flex-col h-full rounded-xl border-t-4 bg-white shadow-sm overflow-hidden transition-colors duration-200",
         borderColorClass
       )}
     >
-      <div className={clsx("p-3 text-center font-bold text-sm uppercase tracking-wider", bgClass, colorClass)}>
+      <div className={clsx("p-3 text-center font-bold text-sm uppercase tracking-wider pointer-events-none", bgClass, colorClass)}>
         {title}
       </div>
       
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-2 space-y-2 min-h-[120px] bg-gray-50/50">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-2 space-y-2 min-h-[120px] bg-slate-50/50 pointer-events-none">
         <AnimatePresence>
           {items.map((item) => (
             <motion.div
               key={item.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="p-2 bg-white rounded border border-gray-100 shadow-sm text-xs flex justify-between items-center"
+              className="p-2 bg-white rounded border border-slate-100 shadow-sm text-xs flex justify-between items-center"
             >
-              <span className="font-medium text-gray-700 truncate mr-2">{item.en}</span>
-              <span className="font-mono text-gray-500">${item.val.toLocaleString()}</span>
+              <span className="font-medium text-slate-700 truncate mr-2">{item.en}</span>
+              <span className="font-mono text-slate-500">${item.val.toLocaleString()}</span>
             </motion.div>
           ))}
         </AnimatePresence>
         {items.length === 0 && (
-            <div className="h-full flex items-center justify-center text-gray-300 text-xs italic">
-                Tap to drop here
+            <div className="h-full flex items-center justify-center text-slate-300 text-xs italic">
+                Drop items here
             </div>
         )}
       </div>
 
-      <div className="p-3 border-t border-gray-100 text-right font-mono font-bold text-gray-800">
+      <div className="p-3 border-t border-slate-100 text-right font-mono font-bold text-slate-800 pointer-events-none">
         ${total.toLocaleString()}
       </div>
     </div>
@@ -120,8 +147,7 @@ export default function BalanceQuest() {
   const [equity, setEquity] = useState<AccountItem[]>([]);
   
   // UI State
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [feedback, setFeedback] = useState<{ msg: string; type: 'neutral' | 'success' | 'error' }>({ msg: "Select a card to begin...", type: 'neutral' });
+  const [feedback, setFeedback] = useState<{ msg: string; type: 'neutral' | 'success' | 'error' }>({ msg: "Drag cards to sort...", type: 'neutral' });
   const [shake, setShake] = useState(false);
   const [bossShake, setBossShake] = useState(false);
   const [gameState, setGameState] = useState<'playing' | 'won' | 'lost'>('playing');
@@ -186,36 +212,24 @@ export default function BalanceQuest() {
     setBossHp(items.length);
     setMaxBossHp(items.length);
     setGameState('playing');
-    setFeedback({ msg: `Level ${level} Started! Defeat the Imbalance!`, type: 'neutral' });
+    setFeedback({ msg: `Level ${level} Started! Drag to play!`, type: 'neutral' });
   };
 
   // Actions
-  const handleCardClick = (id: string) => {
+  const handleDrop = (cardId: string, targetType: string) => {
     if (gameState !== 'playing') return;
-    if (selectedId === id) {
-        setSelectedId(null); // Deselect
-    } else {
-        setSelectedId(id);
-        setFeedback({ msg: "Select a column...", type: 'neutral' });
-    }
-  };
 
-  const handleColumnSelect = (targetType: 'assets' | 'liab' | 'equity') => {
-    if (!selectedId || gameState !== 'playing') return;
-
-    const card = deck.find(c => c.id === selectedId);
+    const card = deck.find(c => c.id === cardId);
     if (!card) return;
 
     // Check Logic
     if (card.cat === targetType) {
         // Success
-        handleSuccess(card, targetType);
+        handleSuccess(card, targetType as 'assets' | 'liab' | 'equity');
     } else {
         // Fail
         handleFail();
     }
-    
-    setSelectedId(null);
   };
 
   const handleSuccess = (card: AccountItem, targetType: 'assets' | 'liab' | 'equity') => {
@@ -235,7 +249,7 @@ export default function BalanceQuest() {
     setTimeout(() => setBossShake(false), 300);
 
     setXp(prev => prev + 50);
-    setFeedback({ msg: "Correct! Critical Hit!", type: 'success' });
+    setFeedback({ msg: "Critical Hit!", type: 'success' });
   };
 
   const handleFail = () => {
@@ -247,7 +261,7 @@ export default function BalanceQuest() {
     });
     setShake(true);
     setTimeout(() => setShake(false), 400);
-    setFeedback({ msg: "Wrong Account! You took damage!", type: 'error' });
+    setFeedback({ msg: "Ouch! Wrong Column!", type: 'error' });
   };
 
   const handleWin = () => {
@@ -257,12 +271,12 @@ export default function BalanceQuest() {
         spread: 70,
         origin: { y: 0.6 }
     });
-    setFeedback({ msg: "LEVEL COMPLETE! Balance Restored!", type: 'success' });
+    setFeedback({ msg: "VICTORY! Balance Restored!", type: 'success' });
   };
 
   const handleLoss = () => {
     setGameState('lost');
-    setFeedback({ msg: "GAME OVER! The books are cooked.", type: 'error' });
+    setFeedback({ msg: "DEFEAT! The books are unbalanced.", type: 'error' });
   };
 
   const nextLevel = () => {
@@ -274,7 +288,6 @@ export default function BalanceQuest() {
   const totalAssets = sum(assets);
   const totalLiab = sum(liab);
   const totalEquity = sum(equity);
-  const isBalanced = totalAssets === (totalLiab + totalEquity) && deck.length === 0;
 
   return (
     <div className={clsx("min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col", shake && "animate-shake")}>
@@ -325,21 +338,20 @@ export default function BalanceQuest() {
       <main className="flex-1 max-w-5xl mx-auto w-full p-4 flex flex-col md:flex-row gap-6 overflow-hidden">
         
         {/* LEFT: DECK */}
-        <div className="md:w-1/3 flex flex-col gap-4 h-[40vh] md:h-auto">
+        <div className="md:w-1/3 flex flex-col gap-4 h-[40vh] md:h-auto z-20">
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex flex-col h-full">
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="font-bold text-slate-500 uppercase text-sm">Unsorted Accounts ({deck.length})</h2>
                     <RefreshCw size={16} className="text-slate-400 cursor-pointer hover:rotate-180 transition-transform" onClick={() => startLevel()} />
                 </div>
                 
-                <div className="flex-1 overflow-y-auto space-y-3 pr-2 scrollbar-thin">
+                <div className="flex-1 overflow-y-auto space-y-3 pr-2 pb-20 scrollbar-thin relative">
                     <AnimatePresence mode='popLayout'>
                         {deck.map(item => (
                             <Card 
                                 key={item.id} 
                                 item={item} 
-                                onClick={() => handleCardClick(item.id)} 
-                                isSelected={selectedId === item.id} 
+                                onDrop={handleDrop} 
                             />
                         ))}
                     </AnimatePresence>
@@ -351,13 +363,12 @@ export default function BalanceQuest() {
         </div>
 
         {/* RIGHT: COLUMNS */}
-        <div className="md:w-2/3 grid grid-cols-1 md:grid-cols-3 gap-3 h-[50vh] md:h-auto">
+        <div className="md:w-2/3 grid grid-cols-1 md:grid-cols-3 gap-3 h-[50vh] md:h-auto z-0">
             <Column 
                 title="Assets" 
                 type="assets" 
                 items={assets} 
                 total={totalAssets} 
-                onSelect={() => handleColumnSelect('assets')}
                 colorClass="text-blue-600"
                 bgClass="bg-blue-50"
                 borderColorClass="border-blue-500"
@@ -367,7 +378,6 @@ export default function BalanceQuest() {
                 type="liab" 
                 items={liab} 
                 total={totalLiab} 
-                onSelect={() => handleColumnSelect('liab')}
                 colorClass="text-orange-600"
                 bgClass="bg-orange-50"
                 borderColorClass="border-orange-500"
@@ -377,7 +387,6 @@ export default function BalanceQuest() {
                 type="equity" 
                 items={equity} 
                 total={totalEquity} 
-                onSelect={() => handleColumnSelect('equity')}
                 colorClass="text-emerald-600"
                 bgClass="bg-emerald-50"
                 borderColorClass="border-emerald-500"
@@ -388,7 +397,7 @@ export default function BalanceQuest() {
 
       {/* FOOTER / STATUS */}
       <footer className={clsx(
-          "p-4 text-center border-t transition-colors duration-300",
+          "p-4 text-center border-t transition-colors duration-300 z-30 relative",
           gameState === 'lost' ? "bg-red-100 border-red-200" : 
           gameState === 'won' ? "bg-green-100 border-green-200" : "bg-white border-slate-200"
       )}>

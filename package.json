@@ -9,25 +9,25 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@tailwindcss/postcss": "^4.2.1",
+    "canvas-confetti": "^1.9.0",
+    "clsx": "^2.0.0",
+    "framer-motion": "^10.16.4",
+    "lucide-react": "^0.292.0",
     "next": "latest",
     "react": "latest",
     "react-dom": "latest",
-    "framer-motion": "^10.16.4",
-    "lucide-react": "^0.292.0",
-    "canvas-confetti": "^1.9.0",
-    "clsx": "^2.0.0",
     "tailwind-merge": "^2.0.0"
   },
   "devDependencies": {
+    "@types/canvas-confetti": "^1.6.4",
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
-    "@types/canvas-confetti": "^1.6.4",
-    "autoprefixer": "latest",
-    "postcss": "latest",
-    "tailwindcss": "latest",
-    "typescript": "latest",
     "eslint": "latest",
-    "eslint-config-next": "latest"
+    "eslint-config-next": "latest",
+    "postcss": "^8.5.8",
+    "tailwindcss": "latest",
+    "typescript": "latest"
   }
 }
