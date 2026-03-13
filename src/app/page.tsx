@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const MotionDiv = motion.div as any;
-import { ACCOUNTS, AccountItem, AccountCategory } from '@/lib/gameData';
+import { ACCOUNTS, AccountItem, AccountCategory, CATEGORY_EXPLANATIONS } from '@/lib/gameData';
 import confetti from 'canvas-confetti';
 import { Heart, ShieldAlert, Swords, RefreshCw, Trophy, GripHorizontal, Clock } from 'lucide-react';
 import clsx from 'clsx';
@@ -118,7 +118,7 @@ export default function BalanceQuest() {
   const [shake, setShake] = useState(false);
   const [bossShake, setBossShake] = useState(false);
   const [gameState, setGameState] = useState<'playing' | 'won' | 'lost'>('playing');
-  const [timeLeft, setTimeLeft] = useState(180); // 3 min per level
+  const [timeLeft, setTimeLeft] = useState(120); // 2 min per level
   const [gameStarted, setGameStarted] = useState(false);
 
   useEffect(() => { if (gameStarted) startLevel(); }, [level, gameStarted]);
@@ -187,7 +187,7 @@ export default function BalanceQuest() {
     setBossHp(items.length);
     setMaxBossHp(items.length);
     setGameState('playing');
-    setTimeLeft(180);
+    setTimeLeft(120);
     setFeedback({ msg: `Level ${level}`, type: 'neutral' });
   };
 
@@ -235,6 +235,14 @@ export default function BalanceQuest() {
   const tL = sum(currentLiab) + sum(longTermLiab);
   const tE = sum(equityCapital) + sum(equityRetained);
 
+  // All items with correct categories (for answer screen when lost)
+  const allItems: AccountItem[] = [...deck, ...currentAssets, ...fixedAssets, ...currentLiab, ...longTermLiab, ...equityCapital, ...equityRetained];
+  const itemsByCat = allItems.reduce((acc, item) => {
+    if (!acc[item.cat]) acc[item.cat] = [];
+    acc[item.cat].push(item);
+    return acc;
+  }, {} as Record<AccountCategory, AccountItem[]>);
+
   // --- START SCREEN ---
   if (!gameStarted) {
     return (
@@ -268,7 +276,7 @@ export default function BalanceQuest() {
           </MotionDiv>
           <div className="mt-8 flex justify-center gap-4 text-slate-500 text-xs">
             <span>❤️ 3 lives</span>
-            <span>⏱️ 3 min</span>
+            <span>⏱️ 2 min</span>
             <span>👾 Boss battle</span>
           </div>
         </MotionDiv>
@@ -347,6 +355,53 @@ export default function BalanceQuest() {
           />
         </div>
       </main>
+
+      {/* Answer overlay when lost */}
+      {gameState === 'lost' && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 overflow-y-auto">
+          <MotionDiv
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden"
+          >
+            <div className="bg-red-500 text-white px-6 py-4">
+              <h2 className="text-xl font-bold flex items-center gap-2">
+                <ShieldAlert size={24} /> Đáp án & Giải thích
+              </h2>
+              <p className="text-red-100 text-sm mt-1">Cân đối: Assets = Liabilities + Equity</p>
+            </div>
+            <div className="p-6 overflow-y-auto max-h-[60vh] space-y-4">
+              {(['currentAssets', 'fixedAssets', 'currentLiab', 'longTermLiab', 'equityCapital', 'equityRetained'] as AccountCategory[]).map((cat) => {
+                const items = itemsByCat[cat] || [];
+                const ex = CATEGORY_EXPLANATIONS[cat];
+                if (items.length === 0) return null;
+                return (
+                  <div key={cat} className="border rounded-lg overflow-hidden">
+                    <div className="bg-slate-100 px-4 py-2 font-bold text-sm text-slate-700">{ex.title}</div>
+                    <div className="px-4 py-2 text-xs text-slate-600 bg-slate-50">{ex.explain}</div>
+                    <div className="p-3 space-y-1">
+                      {items.map((item) => (
+                        <div key={item.id} className="flex justify-between items-center text-sm">
+                          <span><strong>{item.en}</strong> <span className="text-slate-500">({item.vi})</span></span>
+                          <span className="font-mono text-slate-600">${item.val.toLocaleString()}</span>
+                        </div>
+                      ))}
+                      <div className="pt-2 border-t font-mono text-xs text-slate-500">
+                        Tổng: ${items.reduce((a, c) => a + c.val, 0).toLocaleString()}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="p-4 border-t bg-slate-50 flex gap-2 justify-center">
+              <button onClick={() => startLevel()} className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg">
+                Chơi lại
+              </button>
+            </div>
+          </MotionDiv>
+        </div>
+      )}
 
       <footer className={clsx("flex-shrink-0 p-2 border-t text-center", gameState === 'lost' ? "bg-red-100" : gameState === 'won' ? "bg-green-100" : "bg-white")}>
         <div className={clsx("font-bold text-sm", feedback.type === 'error' ? "text-red-600" : feedback.type === 'success' ? "text-green-600" : "text-slate-600")}>

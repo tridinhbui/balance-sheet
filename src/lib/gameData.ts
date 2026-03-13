@@ -117,6 +117,33 @@ export const ACCOUNTS = {
 
 export type AccountCategory = 'currentAssets' | 'fixedAssets' | 'currentLiab' | 'longTermLiab' | 'equityCapital' | 'equityRetained';
 
+export const CATEGORY_EXPLANATIONS: Record<AccountCategory, { title: string; explain: string }> = {
+  currentAssets: {
+    title: "Current Assets (Tài sản ngắn hạn)",
+    explain: "Tài sản có thể chuyển đổi thành tiền trong vòng 1 năm hoặc 1 chu kỳ kinh doanh. Ví dụ: tiền mặt, hàng tồn kho, phải thu.",
+  },
+  fixedAssets: {
+    title: "Fixed Assets (Tài sản dài hạn)",
+    explain: "Tài sản sử dụng lâu dài (>1 năm): đất đai, nhà xưởng, máy móc, tài sản vô hình (bằng sáng chế, thương hiệu).",
+  },
+  currentLiab: {
+    title: "Current Liabilities (Nợ ngắn hạn)",
+    explain: "Nợ phải trả trong vòng 1 năm: phải trả người bán, lương phải trả, vay ngắn hạn, thuế phải nộp.",
+  },
+  longTermLiab: {
+    title: "Long-term Liabilities (Nợ dài hạn)",
+    explain: "Nợ có thời hạn >1 năm: nợ vay dài hạn, trái phiếu, nợ thế chấp, nghĩa vụ thuê tài sản.",
+  },
+  equityCapital: {
+    title: "Equity - Capital (Vốn góp)",
+    explain: "Vốn chủ sở hữu từ cổ đông/góp vốn: cổ phiếu phổ thông, cổ phiếu ưu đãi, thặng dư vốn cổ phần.",
+  },
+  equityRetained: {
+    title: "Equity - Retained & Reserves (LN giữ lại & Quỹ)",
+    explain: "Lợi nhuận giữ lại chưa chia, các quỹ dự trữ, thặng dư đánh giá lại tài sản.",
+  },
+};
+
 export type AccountItem = {
   id: string;
   en: string;
