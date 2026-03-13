@@ -1,4 +1,5 @@
 // Sub-categories: Assets = Current + Fixed | Liabilities = Current + Long-term | Equity
+// 100 accounts total
 
 export const ACCOUNTS = {
   currentAssets: [
@@ -12,6 +13,16 @@ export const ACCOUNTS = {
     { en: "Notes receivable", vi: "Phải thu theo khế ước" },
     { en: "Marketable securities", vi: "Chứng khoán khả mại" },
     { en: "Petty cash", vi: "Quỹ tiền mặt nhỏ" },
+    { en: "Bank deposits", vi: "Tiền gửi ngân hàng" },
+    { en: "Trade receivables", vi: "Phải thu thương mại" },
+    { en: "Other receivables", vi: "Phải thu khác" },
+    { en: "Prepaid insurance", vi: "Bảo hiểm trả trước" },
+    { en: "Prepaid rent", vi: "Tiền thuê trả trước" },
+    { en: "Advance to suppliers", vi: "Tạm ứng người bán" },
+    { en: "Raw materials", vi: "Nguyên vật liệu" },
+    { en: "Work in progress", vi: "Sản phẩm dở dang" },
+    { en: "Finished goods", vi: "Thành phẩm" },
+    { en: "Merchandise inventory", vi: "Hàng hóa tồn kho" },
   ],
   fixedAssets: [
     { en: "Land", vi: "Đất đai" },
@@ -26,6 +37,18 @@ export const ACCOUNTS = {
     { en: "Goodwill", vi: "Lợi thế thương mại" },
     { en: "Leasehold improvements", vi: "Cải tạo thuê tài sản" },
     { en: "Computer equipment", vi: "Thiết bị máy tính" },
+    { en: "Machinery", vi: "Máy móc" },
+    { en: "Office equipment", vi: "Thiết bị văn phòng" },
+    { en: "Copyrights", vi: "Bản quyền" },
+    { en: "Franchise", vi: "Quyền nhượng quyền" },
+    { en: "Software", vi: "Phần mềm" },
+    { en: "Land improvements", vi: "Cải tạo đất" },
+    { en: "Construction in progress", vi: "Xây dựng cơ bản dở dang" },
+    { en: "Investment property", vi: "Bất động sản đầu tư" },
+    { en: "Natural resources", vi: "Tài nguyên thiên nhiên" },
+    { en: "Mineral rights", vi: "Quyền khai thác khoáng sản" },
+    { en: "Art and collectibles", vi: "Tác phẩm nghệ thuật" },
+    { en: "Long-term investments", vi: "Đầu tư dài hạn" },
   ],
   currentLiab: [
     { en: "Accounts payable", vi: "Phải trả người bán" },
@@ -38,6 +61,18 @@ export const ACCOUNTS = {
     { en: "Unearned revenue", vi: "Doanh thu chưa thực hiện" },
     { en: "Current portion of long-term debt", vi: "Phần nợ dài hạn đến hạn" },
     { en: "Dividends payable", vi: "Cổ tức phải trả" },
+    { en: "Salaries payable", vi: "Lương phải trả" },
+    { en: "Utilities payable", vi: "Điện nước phải trả" },
+    { en: "Rent payable", vi: "Tiền thuê phải trả" },
+    { en: "Insurance payable", vi: "Bảo hiểm phải trả" },
+    { en: "Customer deposits", vi: "Tiền đặt cọc khách hàng" },
+    { en: "Bank overdraft", vi: "Thấu chi ngân hàng" },
+    { en: "Warranty liability", vi: "Dự phòng bảo hành" },
+    { en: "Income tax payable", vi: "Thuế TNDN phải nộp" },
+    { en: "Sales tax payable", vi: "Thuế GTGT phải nộp" },
+    { en: "Payroll taxes payable", vi: "Thuế BHXH phải trả" },
+    { en: "Short-term borrowings", vi: "Vay ngắn hạn" },
+    { en: "Accrued interest", vi: "Lãi vay phải trả tích lũy" },
   ],
   longTermLiab: [
     { en: "Long-term debt", vi: "Nợ dài hạn" },
@@ -46,20 +81,41 @@ export const ACCOUNTS = {
     { en: "Deferred tax liability", vi: "Thuế thu nhập hoãn lại phải trả" },
     { en: "Pension obligation", vi: "Nghĩa vụ lương hưu" },
     { en: "Lease liability", vi: "Nợ thuê tài sản" },
+    { en: "Debentures payable", vi: "Trái phiếu công ty" },
+    { en: "Loans payable", vi: "Khoản vay phải trả" },
+    { en: "Deferred revenue", vi: "Doanh thu hoãn lại" },
+    { en: "Post-employment benefits", vi: "Phúc lợi sau nghỉ hưu" },
+    { en: "Asset retirement obligation", vi: "Nghĩa vụ thanh lý tài sản" },
+    { en: "Convertible bonds", vi: "Trái phiếu chuyển đổi" },
+    { en: "Subordinated debt", vi: "Nợ thứ cấp" },
+    { en: "Term loan", vi: "Khoản vay có kỳ hạn" },
   ],
-  equity: [
+  equityCapital: [
     { en: "Common stock", vi: "Cổ phiếu phổ thông" },
     { en: "Preferred stock", vi: "Cổ phiếu ưu đãi" },
     { en: "Paid-in capital", vi: "Thặng dư vốn cổ phần" },
-    { en: "Retained earnings", vi: "Lợi nhuận giữ lại" },
     { en: "Treasury stock", vi: "Cổ phiếu quỹ" },
     { en: "Owner's capital", vi: "Vốn chủ sở hữu" },
+    { en: "Additional paid-in capital", vi: "Vốn góp bổ sung" },
+    { en: "Share premium", vi: "Thặng dư phát hành" },
+    { en: "Partnership capital", vi: "Vốn góp hợp danh" },
+    { en: "Donated capital", vi: "Vốn được tài trợ" },
+    { en: "Contributed surplus", vi: "Thặng dư đóng góp" },
+  ],
+  equityRetained: [
+    { en: "Retained earnings", vi: "Lợi nhuận giữ lại" },
     { en: "Owner's drawings", vi: "Rút vốn" },
-    { en: "Accumulated other comprehensive income", vi: "Lợi nhuận toàn diện khác lũy kế" },
+    { en: "Accumulated other comprehensive income", vi: "LN toàn diện khác lũy kế" },
+    { en: "Capital reserve", vi: "Quỹ dự trữ vốn" },
+    { en: "Legal reserve", vi: "Quỹ dự phòng pháp định" },
+    { en: "Revaluation surplus", vi: "Thặng dư đánh giá lại" },
+    { en: "Appropriated retained earnings", vi: "LN giữ lại đã phân bổ" },
+    { en: "Unappropriated retained earnings", vi: "LN giữ lại chưa phân bổ" },
+    { en: "Reserves", vi: "Các quỹ dự trữ" },
   ],
 };
 
-export type AccountCategory = 'currentAssets' | 'fixedAssets' | 'currentLiab' | 'longTermLiab' | 'equity';
+export type AccountCategory = 'currentAssets' | 'fixedAssets' | 'currentLiab' | 'longTermLiab' | 'equityCapital' | 'equityRetained';
 
 export type AccountItem = {
   id: string;

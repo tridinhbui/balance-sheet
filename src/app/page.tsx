@@ -12,12 +12,7 @@ import clsx from 'clsx';
 
 // --- COMPONENTS ---
 
-interface CardProps {
-  item: AccountItem;
-  onDragStart: (e: React.DragEvent, itemId: string) => void;
-}
-
-const Card = ({ item, onDragStart }: CardProps) => (
+const Card = ({ item, onDragStart }: { item: AccountItem; onDragStart: (e: React.DragEvent, id: string) => void }) => (
   <div
     draggable
     onDragStart={(e) => onDragStart(e, item.id)}
@@ -34,14 +29,13 @@ const Card = ({ item, onDragStart }: CardProps) => (
   </div>
 );
 
-const Column = ({
+const DropSection = ({
   title,
   type,
   items,
   total,
   colorClass,
   bgClass,
-  borderColorClass,
   onDrop,
 }: {
   title: string;
@@ -50,38 +44,57 @@ const Column = ({
   total: number;
   colorClass: string;
   bgClass: string;
-  borderColorClass: string;
   onDrop: (cardId: string, targetType: AccountCategory) => void;
 }) => {
-  const [isDragOver, setIsDragOver] = useState(false);
-
+  const [over, setOver] = useState(false);
   return (
     <div
-      onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setIsDragOver(true); }}
-      onDragLeave={() => setIsDragOver(false)}
-      onDrop={(e) => { e.preventDefault(); setIsDragOver(false); const id = e.dataTransfer.getData('text/plain'); if (id) onDrop(id, type); }}
+      onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setOver(true); }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(e) => { e.preventDefault(); setOver(false); const id = e.dataTransfer.getData('text/plain'); if (id) onDrop(id, type); }}
       className={clsx(
-        "flex flex-col rounded-lg border-t-2 bg-white shadow-sm overflow-hidden transition-all min-w-0",
-        borderColorClass,
-        isDragOver && "ring-2 ring-amber-400 scale-[1.02]"
+        "flex-1 min-h-0 flex flex-col rounded border overflow-hidden transition-all",
+        bgClass,
+        over && "ring-2 ring-amber-400"
       )}
     >
-      <div className={clsx("px-2 py-1.5 text-center font-bold text-[10px] uppercase", bgClass, colorClass)}>{title}</div>
-      <div className="flex-1 min-h-0 overflow-hidden p-1.5 flex flex-wrap content-start gap-1">
+      <div className={clsx("px-2 py-1 text-center font-bold text-[10px] uppercase shrink-0", colorClass)}>{title}</div>
+      <div className="flex-1 min-h-0 overflow-hidden p-1 flex flex-wrap content-start gap-1">
         {items.map((item) => (
-          <div key={item.id} className="p-1.5 bg-white rounded border border-slate-100 text-[10px] flex justify-between items-center gap-1 min-w-0">
-            <span className="truncate font-medium text-slate-700">{item.en}</span>
-            <span className="font-mono text-slate-500 shrink-0">${item.val.toLocaleString()}</span>
+          <div key={item.id} className="p-1 bg-white rounded border text-[10px] flex justify-between items-center gap-1 min-w-0">
+            <span className="truncate">{item.en}</span>
+            <span className="font-mono shrink-0">${item.val.toLocaleString()}</span>
           </div>
         ))}
-        {items.length === 0 && (
-          <div className="w-full h-full flex items-center justify-center text-slate-300 text-[10px] italic">Drop</div>
-        )}
+        {items.length === 0 && <div className="w-full flex items-center justify-center text-slate-300 text-[10px] italic">Drop</div>}
       </div>
-      <div className={clsx("px-2 py-1 border-t text-right font-mono font-bold text-[10px]", colorClass)}>${total.toLocaleString()}</div>
+      <div className={clsx("px-2 py-0.5 border-t text-right font-mono font-bold text-[10px] shrink-0", colorClass)}>${total.toLocaleString()}</div>
     </div>
   );
 };
+
+const MainColumnFixed = ({
+  title,
+  borderColorClass,
+  headerColorClass,
+  sections,
+  onDrop,
+}: {
+  title: string;
+  borderColorClass: string;
+  headerColorClass: string;
+  sections: { title: string; type: AccountCategory; items: AccountItem[]; total: number; colorClass: string; bgClass: string }[];
+  onDrop: (cardId: string, targetType: AccountCategory) => void;
+}) => (
+  <div className={clsx("flex flex-col rounded-lg border-t-4 bg-white shadow-sm overflow-hidden min-w-0 flex-1", borderColorClass)}>
+    <div className={clsx("px-2 py-1.5 text-center font-bold text-xs uppercase shrink-0", headerColorClass)}>{title}</div>
+    <div className="flex-1 min-h-0 flex flex-col gap-1 p-1.5">
+      {sections.map((s) => (
+        <DropSection key={s.type} title={s.title} type={s.type} items={s.items} total={s.total} colorClass={s.colorClass} bgClass={s.bgClass} onDrop={onDrop} />
+      ))}
+    </div>
+  </div>
+);
 
 // --- MAIN ---
 
@@ -98,15 +111,17 @@ export default function BalanceQuest() {
   const [fixedAssets, setFixedAssets] = useState<AccountItem[]>([]);
   const [currentLiab, setCurrentLiab] = useState<AccountItem[]>([]);
   const [longTermLiab, setLongTermLiab] = useState<AccountItem[]>([]);
-  const [equity, setEquity] = useState<AccountItem[]>([]);
+  const [equityCapital, setEquityCapital] = useState<AccountItem[]>([]);
+  const [equityRetained, setEquityRetained] = useState<AccountItem[]>([]);
 
   const [feedback, setFeedback] = useState<{ msg: string; type: 'neutral' | 'success' | 'error' }>({ msg: "Drag cards...", type: 'neutral' });
   const [shake, setShake] = useState(false);
   const [bossShake, setBossShake] = useState(false);
   const [gameState, setGameState] = useState<'playing' | 'won' | 'lost'>('playing');
-  const [timeLeft, setTimeLeft] = useState(300);
+  const [timeLeft, setTimeLeft] = useState(180); // 3 min per level
+  const [gameStarted, setGameStarted] = useState(false);
 
-  useEffect(() => { startLevel(); }, [level]);
+  useEffect(() => { if (gameStarted) startLevel(); }, [level, gameStarted]);
 
   useEffect(() => {
     if (gameState !== 'playing' || timeLeft <= 0) return;
@@ -122,13 +137,12 @@ export default function BalanceQuest() {
   const startLevel = () => {
     const items: AccountItem[] = [];
     let totalA = 0, totalL = 0;
+    const shuf = (arr: { en: string; vi: string }[]) => [...arr].sort(() => 0.5 - Math.random());
 
     const nCurA = 2 + Math.floor(level * 0.5);
     const nFixA = 2 + Math.floor(level * 0.3);
     const nCurL = 1 + Math.floor(level * 0.3);
     const nLongL = 1;
-
-    const shuf = (arr: { en: string; vi: string }[]) => [...arr].sort(() => 0.5 - Math.random());
 
     for (let i = 0; i < nCurA; i++) {
       const val = (Math.floor(Math.random() * 30) + 1) * 100;
@@ -154,8 +168,11 @@ export default function BalanceQuest() {
     }
 
     const eq = totalA - totalL;
-    const shufE = shuf(ACCOUNTS.equity);
-    items.push({ ...shufE[0], cat: 'equity' as const, val: eq, id: Math.random().toString(36).slice(2, 11) });
+    const shufCap = shuf(ACCOUNTS.equityCapital);
+    const shufRet = shuf(ACCOUNTS.equityRetained);
+    const eqPart1 = Math.floor(eq * 0.6);
+    items.push({ ...shufCap[0], cat: 'equityCapital' as const, val: eqPart1, id: Math.random().toString(36).slice(2, 11) });
+    items.push({ ...shufRet[0], cat: 'equityRetained' as const, val: eq - eqPart1, id: Math.random().toString(36).slice(2, 11) });
 
     items.sort(() => 0.5 - Math.random());
 
@@ -164,12 +181,13 @@ export default function BalanceQuest() {
     setFixedAssets([]);
     setCurrentLiab([]);
     setLongTermLiab([]);
-    setEquity([]);
+    setEquityCapital([]);
+    setEquityRetained([]);
     setPlayerHp(maxPlayerHp);
     setBossHp(items.length);
     setMaxBossHp(items.length);
     setGameState('playing');
-    setTimeLeft(300);
+    setTimeLeft(180);
     setFeedback({ msg: `Level ${level}`, type: 'neutral' });
   };
 
@@ -189,7 +207,8 @@ export default function BalanceQuest() {
       if (targetType === 'fixedAssets') setFixedAssets((p) => [...p, card]);
       if (targetType === 'currentLiab') setCurrentLiab((p) => [...p, card]);
       if (targetType === 'longTermLiab') setLongTermLiab((p) => [...p, card]);
-      if (targetType === 'equity') setEquity((p) => [...p, card]);
+      if (targetType === 'equityCapital') setEquityCapital((p) => [...p, card]);
+      if (targetType === 'equityRetained') setEquityRetained((p) => [...p, card]);
       setBossHp((p) => {
         const n = p - 1;
         if (n <= 0) { setGameState('won'); confetti({ particleCount: 100, spread: 60, origin: { y: 0.6 } }); setFeedback({ msg: "VICTORY!", type: 'success' }); }
@@ -214,7 +233,49 @@ export default function BalanceQuest() {
   const sum = (arr: AccountItem[]) => arr.reduce((a, c) => a + c.val, 0);
   const tA = sum(currentAssets) + sum(fixedAssets);
   const tL = sum(currentLiab) + sum(longTermLiab);
-  const tE = sum(equity);
+  const tE = sum(equityCapital) + sum(equityRetained);
+
+  // --- START SCREEN ---
+  if (!gameStarted) {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-amber-500/10 via-transparent to-transparent" />
+        <MotionDiv
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="relative z-10 text-center px-6"
+        >
+          <div className="text-6xl mb-4 animate-bounce">⚖️</div>
+          <h1 className="text-4xl md:text-5xl font-black text-white mb-2 tracking-tight">
+            Balance <span className="text-amber-400">Quest</span>
+          </h1>
+          <p className="text-slate-400 text-lg mb-2">Cân đối kế toán • Accounting RPG</p>
+          <p className="text-slate-500 text-sm max-w-md mx-auto mb-8">
+            Đánh bại quái vật Mất Cân Đối bằng kiến thức kế toán! Kéo thả tài khoản vào đúng cột.
+          </p>
+          <MotionDiv
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ delay: 0.3, duration: 0.4 }}
+          >
+            <button
+              onClick={() => setGameStarted(true)}
+              className="px-12 py-4 bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold text-xl rounded-2xl shadow-lg shadow-amber-500/30 hover:shadow-amber-400/40 hover:scale-105 active:scale-95 transition-all"
+            >
+              START GAME
+            </button>
+          </MotionDiv>
+          <div className="mt-8 flex justify-center gap-4 text-slate-500 text-xs">
+            <span>❤️ 3 lives</span>
+            <span>⏱️ 3 min</span>
+            <span>👾 Boss battle</span>
+          </div>
+        </MotionDiv>
+        <div className="absolute bottom-4 left-0 right-0 text-center text-slate-600 text-xs">Drag & drop • Assets = Liabilities + Equity</div>
+      </div>
+    );
+  }
 
   return (
     <div className={clsx("h-screen flex flex-col overflow-hidden bg-slate-50", shake && "animate-shake")}>
@@ -253,12 +314,37 @@ export default function BalanceQuest() {
           </div>
         </div>
 
-        <div className="flex-1 min-w-0 grid grid-cols-5 gap-2 overflow-hidden">
-          <Column title="Current Assets" type="currentAssets" items={currentAssets} total={sum(currentAssets)} onDrop={handleDrop} colorClass="text-blue-600" bgClass="bg-blue-50" borderColorClass="border-blue-500" />
-          <Column title="Fixed Assets" type="fixedAssets" items={fixedAssets} total={sum(fixedAssets)} onDrop={handleDrop} colorClass="text-blue-500" bgClass="bg-blue-50/80" borderColorClass="border-blue-400" />
-          <Column title="Current Liab." type="currentLiab" items={currentLiab} total={sum(currentLiab)} onDrop={handleDrop} colorClass="text-orange-600" bgClass="bg-orange-50" borderColorClass="border-orange-500" />
-          <Column title="Long-term Liab." type="longTermLiab" items={longTermLiab} total={sum(longTermLiab)} onDrop={handleDrop} colorClass="text-orange-500" bgClass="bg-orange-50/80" borderColorClass="border-orange-400" />
-          <Column title="Equity" type="equity" items={equity} total={sum(equity)} onDrop={handleDrop} colorClass="text-emerald-600" bgClass="bg-emerald-50" borderColorClass="border-emerald-500" />
+        <div className="flex-1 min-w-0 grid grid-cols-3 gap-2 overflow-hidden">
+          <MainColumnFixed
+            title="Assets"
+            borderColorClass="border-blue-500"
+            headerColorClass="text-blue-600"
+            sections={[
+              { title: "Current", type: 'currentAssets', items: currentAssets, total: sum(currentAssets), colorClass: "text-blue-600", bgClass: "bg-blue-50" },
+              { title: "Fixed", type: 'fixedAssets', items: fixedAssets, total: sum(fixedAssets), colorClass: "text-blue-600", bgClass: "bg-blue-50/70" },
+            ]}
+            onDrop={handleDrop}
+          />
+          <MainColumnFixed
+            title="Liabilities"
+            borderColorClass="border-orange-500"
+            headerColorClass="text-orange-600"
+            sections={[
+              { title: "Current", type: 'currentLiab', items: currentLiab, total: sum(currentLiab), colorClass: "text-orange-600", bgClass: "bg-orange-50" },
+              { title: "Long-term", type: 'longTermLiab', items: longTermLiab, total: sum(longTermLiab), colorClass: "text-orange-600", bgClass: "bg-orange-50/70" },
+            ]}
+            onDrop={handleDrop}
+          />
+          <MainColumnFixed
+            title="Equity"
+            borderColorClass="border-emerald-500"
+            headerColorClass="text-emerald-600"
+            sections={[
+              { title: "Capital", type: 'equityCapital', items: equityCapital, total: sum(equityCapital), colorClass: "text-emerald-600", bgClass: "bg-emerald-50" },
+              { title: "Retained & Reserves", type: 'equityRetained', items: equityRetained, total: sum(equityRetained), colorClass: "text-emerald-600", bgClass: "bg-emerald-50/70" },
+            ]}
+            onDrop={handleDrop}
+          />
         </div>
       </main>
 
