@@ -1,7 +1,11 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence, useDragControls, HTMLMotionProps } from 'framer-motion';
+import { motion, AnimatePresence, useDragControls } from 'framer-motion';
+
+// Workaround: framer-motion v10 types incompatible with React 19
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const MotionDiv = motion.div as any;
 import { ACCOUNTS, AccountItem } from '@/lib/gameData';
 import confetti from 'canvas-confetti';
 import { Heart, ShieldAlert, Swords, RefreshCw, Trophy, GripHorizontal } from 'lucide-react';
@@ -19,7 +23,7 @@ const Card = ({ item, onDrop }: CardProps) => {
   const controls = useDragControls();
   
   return (
-    <motion.div
+    <MotionDiv
       layoutId={item.id}
       drag
       dragControls={controls}
@@ -28,18 +32,13 @@ const Card = ({ item, onDrop }: CardProps) => {
       dragMomentum={false}
       whileDrag={{ scale: 1.1, zIndex: 100, rotate: 2, cursor: 'grabbing' }}
       whileHover={{ scale: 1.02, cursor: 'grab' }}
-      onDragEnd={(event, info) => {
-        const dropPoint = {
-            x: info.point.x,
-            y: info.point.y
-        };
-        
+      onDragEnd={(_event: unknown, info: { point: { x: number; y: number } }) => {
+        const dropPoint = { x: info.point.x, y: info.point.y };
         const elements = document.elementsFromPoint(dropPoint.x, dropPoint.y);
         const dropZone = elements.find(el => el.hasAttribute('data-drop-zone'));
-        
         if (dropZone) {
-            const targetId = dropZone.getAttribute('data-drop-zone');
-            if (targetId) onDrop(item.id, targetId);
+          const targetId = dropZone.getAttribute('data-drop-zone');
+          if (targetId) onDrop(item.id, targetId);
         }
       }}
       initial={{ opacity: 0, scale: 0.8 }}
@@ -59,7 +58,7 @@ const Card = ({ item, onDrop }: CardProps) => {
             <GripHorizontal size={14} className="text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
         </div>
       </div>
-    </motion.div>
+    </MotionDiv>
   );
 };
 
@@ -104,7 +103,7 @@ const Column = ({
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-2 space-y-2 min-h-[120px] bg-slate-50/50 pointer-events-none">
         <AnimatePresence>
           {items.map((item) => (
-            <motion.div
+            <MotionDiv
               key={item.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -112,7 +111,7 @@ const Column = ({
             >
               <span className="font-medium text-slate-700 truncate mr-2">{item.en}</span>
               <span className="font-mono text-slate-500">${item.val.toLocaleString()}</span>
-            </motion.div>
+            </MotionDiv>
           ))}
         </AnimatePresence>
         {items.length === 0 && (
@@ -299,7 +298,7 @@ export default function BalanceQuest() {
                 <div className="flex flex-col">
                     <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Boss HP</span>
                     <div className="w-32 h-4 bg-slate-200 rounded-full overflow-hidden relative">
-                        <motion.div 
+                        <MotionDiv 
                             className="absolute top-0 left-0 h-full bg-red-500"
                             initial={{ width: '100%' }}
                             animate={{ width: `${(bossHp / maxBossHp) * 100}%` }}
