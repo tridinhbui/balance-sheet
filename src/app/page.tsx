@@ -16,7 +16,7 @@ const Card = ({ item, onDragStart }: { item: AccountItem; onDragStart: (e: React
   <div
     draggable
     onDragStart={(e) => onDragStart(e, item.id)}
-    className="p-2 rounded border border-slate-200 bg-white shadow-sm select-none cursor-grab active:cursor-grabbing hover:border-slate-300 flex items-center justify-between gap-2 min-w-0 shrink-0"
+    className="p-2 rounded border border-slate-200 bg-white shadow-sm select-none cursor-grab active:cursor-grabbing hover:border-slate-300 flex items-center justify-between gap-2 min-w-[140px] md:min-w-0 shrink-0 min-h-[44px] touch-manipulation"
   >
     <div className="min-w-0 flex-1">
       <div className="font-semibold text-slate-800 text-xs truncate">{item.en}</div>
@@ -255,11 +255,11 @@ export default function BalanceQuest() {
           className="relative z-10 text-center px-6"
         >
           <div className="text-6xl mb-4 animate-bounce">⚖️</div>
-          <h1 className="text-4xl md:text-5xl font-black text-white mb-2 tracking-tight">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white mb-2 tracking-tight">
             Balance <span className="text-amber-400">Quest</span>
           </h1>
           <p className="text-slate-400 text-lg mb-2">Cân đối kế toán • Accounting RPG</p>
-          <p className="text-slate-500 text-sm max-w-md mx-auto mb-8">
+          <p className="text-slate-500 text-xs sm:text-sm max-w-md mx-auto mb-6 sm:mb-8 px-2">
             Đánh bại quái vật Mất Cân Đối bằng kiến thức kế toán! Kéo thả tài khoản vào đúng cột.
           </p>
           <MotionDiv
@@ -269,7 +269,7 @@ export default function BalanceQuest() {
           >
             <button
               onClick={() => setGameStarted(true)}
-              className="px-12 py-4 bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold text-xl rounded-2xl shadow-lg shadow-amber-500/30 hover:shadow-amber-400/40 hover:scale-105 active:scale-95 transition-all"
+              className="px-8 sm:px-12 py-3 sm:py-4 bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold text-lg sm:text-xl rounded-2xl shadow-lg shadow-amber-500/30 hover:shadow-amber-400/40 hover:scale-105 active:scale-95 transition-all min-h-[48px] touch-manipulation"
             >
               START GAME
             </button>
@@ -287,10 +287,10 @@ export default function BalanceQuest() {
 
   return (
     <div className={clsx("h-screen flex flex-col overflow-hidden bg-slate-50", shake && "animate-shake")}>
-      <header className="flex-shrink-0 bg-white border-b p-2">
-        <div className="max-w-6xl mx-auto flex justify-between items-center gap-2">
-          <div className="flex items-center gap-2">
-            <div className="w-24 h-3 bg-slate-200 rounded-full overflow-hidden">
+      <header className="flex-shrink-0 bg-white border-b p-2 sm:p-2">
+        <div className="max-w-6xl mx-auto flex flex-wrap justify-between items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
+            <div className="w-16 sm:w-24 h-3 bg-slate-200 rounded-full overflow-hidden shrink-0">
               <MotionDiv className="h-full bg-red-500" initial={{ width: '100%' }} animate={{ width: `${(bossHp / maxBossHp) * 100}%` }} />
             </div>
             <span className={clsx("text-2xl", bossShake && "scale-125")}>👾</span>
@@ -310,19 +310,19 @@ export default function BalanceQuest() {
         </div>
       </header>
 
-      <main className="flex-1 min-h-0 p-2 flex gap-2 overflow-hidden">
-        <div className="w-48 flex-shrink-0 flex flex-col bg-white rounded-lg border shadow-sm overflow-hidden">
+      <main className="flex-1 min-h-0 p-2 flex flex-col md:flex-row gap-2 overflow-hidden">
+        <div className="w-full md:w-48 flex-shrink-0 flex flex-col bg-white rounded-lg border shadow-sm overflow-hidden max-h-[28vh] md:max-h-none">
           <div className="flex justify-between items-center px-2 py-1 border-b">
             <span className="text-[10px] font-bold text-slate-500">Deck ({deck.length})</span>
             <RefreshCw size={12} className="cursor-pointer hover:rotate-180 transition" onClick={() => startLevel()} />
           </div>
-          <div className="flex-1 min-h-0 overflow-hidden p-1.5 flex flex-wrap content-start gap-1">
+          <div className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden p-1.5 flex flex-row md:flex-wrap md:content-start gap-1 md:overflow-y-auto md:overflow-x-hidden">
             {deck.map((item) => <Card key={item.id} item={item} onDragStart={handleDragStart} />)}
             {deck.length === 0 && <span className="text-slate-300 text-[10px] italic">Empty</span>}
           </div>
         </div>
 
-        <div className="flex-1 min-w-0 grid grid-cols-3 gap-2 overflow-hidden">
+        <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-3 gap-2 overflow-y-auto overflow-x-hidden">
           <MainColumnFixed
             title="Assets"
             borderColorClass="border-blue-500"
@@ -358,11 +358,11 @@ export default function BalanceQuest() {
 
       {/* Answer overlay when lost */}
       {gameState === 'lost' && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-3 sm:p-4 overflow-y-auto overscroll-contain">
           <MotionDiv
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden"
+            className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden my-auto"
           >
             <div className="bg-red-500 text-white px-6 py-4">
               <h2 className="text-xl font-bold flex items-center gap-2">
@@ -370,7 +370,7 @@ export default function BalanceQuest() {
               </h2>
               <p className="text-red-100 text-sm mt-1">Cân đối: Assets = Liabilities + Equity</p>
             </div>
-            <div className="p-6 overflow-y-auto max-h-[60vh] space-y-4">
+            <div className="p-4 sm:p-6 overflow-y-auto max-h-[55vh] sm:max-h-[60vh] space-y-4">
               {(['currentAssets', 'fixedAssets', 'currentLiab', 'longTermLiab', 'equityCapital', 'equityRetained'] as AccountCategory[]).map((cat) => {
                 const items = itemsByCat[cat] || [];
                 const ex = CATEGORY_EXPLANATIONS[cat];
@@ -403,7 +403,7 @@ export default function BalanceQuest() {
         </div>
       )}
 
-      <footer className={clsx("flex-shrink-0 p-2 border-t text-center", gameState === 'lost' ? "bg-red-100" : gameState === 'won' ? "bg-green-100" : "bg-white")}>
+      <footer className={clsx("flex-shrink-0 p-2 sm:p-2 border-t text-center", gameState === 'lost' ? "bg-red-100" : gameState === 'won' ? "bg-green-100" : "bg-white")}>
         <div className={clsx("font-bold text-sm", feedback.type === 'error' ? "text-red-600" : feedback.type === 'success' ? "text-green-600" : "text-slate-600")}>
           {feedback.type === 'error' && <ShieldAlert size={14} className="inline mr-1" />}
           {feedback.type === 'success' && <Swords size={14} className="inline mr-1" />}

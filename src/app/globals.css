@@ -23,3 +23,8 @@ body {
     )
     rgb(var(--background-start-rgb));
 }
+
+/* Smooth touch scrolling on iOS */
+.overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+}
