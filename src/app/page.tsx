@@ -230,26 +230,57 @@ export default function BalanceQuest() {
   }, []);
 
   useEffect(() => {
-    const auth = getAuthInstance();
-    if (!auth || !isFirebaseConfigured()) return;
-    const unsub = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        const cloud = await loadProgressFromCloud(user.uid);
-        if (cloud && (cloud.level ?? 0) > 0) {
-          setLevel(cloud.level ?? 1);
-          setHighestLevel(cloud.highestLevel ?? cloud.level ?? 1);
-          setXp(cloud.xp ?? 0);
-          setTotalLevelsWon(cloud.totalLevelsWon ?? 0);
-          setTotalCorrect(cloud.totalCorrect ?? 0);
-          setTotalAttempts(cloud.totalAttempts ?? 0);
-          setAchievements(cloud.achievements ?? []);
-          if (cloud.difficulty) setDifficulty(cloud.difficulty);
-          saveProgress(cloud);
-        }
+    if (!authUser || !isFirebaseConfigured()) return;
+    const userId = authUser.id;
+    let isActive = true;
+
+    async function loadCloudState() {
+      // Security Check: If they inherited an old ghost session cache from another account, wipe it completely.
+      const localCache = loadProgress();
+      if (localCache.userId !== userId) {
+        if (typeof window !== 'undefined') localStorage.removeItem('balance-quest-progress');
+        setLevel(1);
+        setHighestLevel(1);
+        setXp(0);
+        setTotalLevelsWon(0);
+        setTotalCorrect(0);
+        setTotalAttempts(0);
+        setAchievements([]);
+        setDifficulty('medium');
       }
-    });
-    return () => unsub();
-  }, []);
+
+      const cloud = await loadProgressFromCloud(userId);
+      if (isActive && cloud && (cloud.level ?? 0) > 0) {
+        setLevel(cloud.level ?? 1);
+        setHighestLevel(cloud.highestLevel ?? cloud.level ?? 1);
+        setXp(cloud.xp ?? 0);
+        setTotalLevelsWon(cloud.totalLevelsWon ?? 0);
+        setTotalCorrect(cloud.totalCorrect ?? 0);
+        setTotalAttempts(cloud.totalAttempts ?? 0);
+        setAchievements(cloud.achievements ?? []);
+        if (cloud.difficulty) setDifficulty(cloud.difficulty);
+        saveProgress({ ...cloud, userId });
+      } else if (isActive) {
+        // Cloud is empty (either deleted or brand new). Force overwrite local cache to start fresh.
+        setLevel(1);
+        setHighestLevel(1);
+        setXp(0);
+        setTotalLevelsWon(0);
+        setTotalCorrect(0);
+        setTotalAttempts(0);
+        setAchievements([]);
+        setDifficulty('medium');
+        
+        // Wipe local storage to reflect the empty cloud state and start exactly over
+        if (typeof window !== 'undefined') localStorage.removeItem('balance-quest-progress');
+        // Tag anonymous/new sessions with this user ID now
+        saveProgress({ userId });
+      }
+    }
+
+    loadCloudState();
+    return () => { isActive = false; };
+  }, [authUser]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -279,11 +310,11 @@ export default function BalanceQuest() {
     if (!gameStarted) return;
     const p = { level, highestLevel, xp, totalLevelsWon, totalCorrect, totalAttempts, achievements, difficulty };
     saveProgress(p);
-    const auth = getAuthInstance();
-    if (auth?.currentUser && isFirebaseConfigured()) {
-      saveProgressToCloud(auth.currentUser.uid, p).catch(() => {});
+    
+    if (authUser && isFirebaseConfigured()) {
+      saveProgressToCloud(authUser.id, p).catch(() => {});
     }
-  }, [level, highestLevel, xp, totalLevelsWon, totalCorrect, totalAttempts, achievements, difficulty, gameStarted]);
+  }, [level, highestLevel, xp, totalLevelsWon, totalCorrect, totalAttempts, achievements, difficulty, gameStarted, authUser]);
 
   useEffect(() => { if (gameStarted) startLevel(); }, [level, gameStarted]);
 
