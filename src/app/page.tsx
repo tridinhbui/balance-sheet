@@ -352,11 +352,14 @@ export default function BalanceQuest() {
     let totalA = 0, totalL = 0;
     const shuf = (arr: { en: string }[]) => [...arr].sort(() => 0.5 - Math.random());
     const mult = config.cardMultiplier;
+    // Difficulty scales with level: more cards and variety as level increases
+    const levelScale = 1 + (level - 1) * 0.08; // 1.0 at Lv1, ~2.5 at Lv20
+    const levelMult = mult * Math.min(levelScale, 2.2);
 
-    const nCurA = Math.max(2, Math.floor((2 + Math.floor(level * 0.5)) * mult));
-    const nFixA = Math.max(2, Math.floor((2 + Math.floor(level * 0.3)) * mult));
-    const nCurL = Math.max(1, Math.floor((1 + Math.floor(level * 0.3)) * mult));
-    const nLongL = Math.max(1, Math.floor(1 * mult));
+    const nCurA = Math.max(2, Math.floor((2 + Math.floor(level * 0.6)) * levelMult));
+    const nFixA = Math.max(2, Math.floor((2 + Math.floor(level * 0.5)) * levelMult));
+    const nCurL = Math.max(1, Math.floor((1 + Math.floor(level * 0.5)) * levelMult));
+    const nLongL = Math.max(1, Math.floor((1 + Math.floor(level * 0.2)) * levelMult));
 
     for (let i = 0; i < nCurA; i++) {
       const val = (Math.floor(Math.random() * 30) + 1) * 100;
@@ -401,7 +404,9 @@ export default function BalanceQuest() {
     setBossHp(items.length);
     setMaxBossHp(items.length);
     setGameState('playing');
-    setTimeLeft(practiceMode ? 99999 : config.time);
+    // Time decreases at higher levels (non-practice): Lv1=full time, Lv20≈70% of base
+    const timeForLevel = practiceMode ? 99999 : Math.max(60, Math.floor(config.time * (1 - (level - 1) * 0.015)));
+    setTimeLeft(timeForLevel);
     setFeedback({ msg: practiceMode ? `Practice • Level ${level}` : `Level ${level}`, type: 'neutral' });
     setHintUsed(false);
     setHintTargetType(null);
@@ -678,13 +683,14 @@ export default function BalanceQuest() {
                     <div
                       key={lvl}
                       className={clsx(
-                        "w-14 h-14 sm:w-16 sm:h-16 rounded-xl flex flex-col items-center justify-center border-2 transition-all",
-                        completed && "bg-emerald-50 border-emerald-300 text-emerald-600",
+                        "w-14 h-14 sm:w-16 sm:h-16 rounded-xl flex flex-col items-center justify-center border-2 transition-all relative",
+                        completed && "bg-emerald-50 border-emerald-300",
                         current && "bg-amber-50 border-amber-400 text-amber-600 ring-2 ring-amber-200",
-                        locked && "bg-slate-50 border-slate-200 text-slate-400"
+                        locked && "bg-slate-50 border-slate-200 text-slate-400 opacity-70"
                       )}
                     >
-                      <span className="text-xl sm:text-2xl">{completed ? '✓' : locked ? '🔒' : icon}</span>
+                      <span className={clsx("text-xl sm:text-2xl", completed && "opacity-80")}>{icon}</span>
+                      {completed && <span className="absolute top-0.5 right-0.5 text-emerald-500 text-xs">✓</span>}
                       <span className="text-[10px] font-bold">{lvl}</span>
                       <span className="text-[8px] truncate w-full text-center px-0.5 hidden sm:block">{bossName}</span>
                     </div>
@@ -862,6 +868,7 @@ export default function BalanceQuest() {
           <div className="w-1 h-8 rounded-full bg-slate-300 group-hover:bg-amber-500 transition-colors" />
         </div>
 
+        <div className="flex-1 min-w-0 flex gap-2 overflow-hidden">
         <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-2 overflow-y-visible md:overflow-y-auto overflow-x-hidden p-2">
           <MainColumnFixed
             title="Assets"
@@ -902,6 +909,27 @@ export default function BalanceQuest() {
             selectedCardId={selectedCardId}
             onTapPlace={handleDrop}
           />
+        </div>
+
+        {/* Error panel - vertical sidebar on right when wrong */}
+        {(wrongDropExplanation || feedback.type === 'error') && (
+          <div className="hidden sm:flex w-48 lg:w-56 flex-shrink-0 flex-col border-l border-slate-200 bg-red-50/80 rounded-r-lg overflow-hidden">
+            <div className="px-3 py-2 bg-red-100 border-b border-red-200 text-xs font-bold text-red-800 uppercase tracking-wider flex items-center gap-1">
+              <ShieldAlert size={14} /> Mistakes
+            </div>
+            <div className="flex-1 overflow-y-auto p-3 text-sm text-red-900 space-y-2">
+              {wrongDropExplanation && (
+                <div className="bg-white/80 rounded-lg p-2.5 border border-red-200 text-xs">
+                  <strong className="text-red-700">{wrongDropExplanation.card.en}</strong>
+                  <span className="text-red-600 block mt-1">{wrongDropExplanation.correctExplain}</span>
+                </div>
+              )}
+              {feedback.type === 'error' && feedback.msg !== 'Wrong!' && (
+                <p className="font-medium">{feedback.msg}</p>
+              )}
+            </div>
+          </div>
+        )}
         </div>
       </main>
       </LayoutGroup>
@@ -960,15 +988,26 @@ export default function BalanceQuest() {
       )}
 
       <footer className={clsx("flex-shrink-0 p-4 md:p-2 pb-safe border-t text-center", gameState === 'lost' ? "bg-red-100" : gameState === 'won' ? "bg-green-100" : "bg-white")}>
-        {wrongDropExplanation && (
-          <div className="mb-2 p-3 md:p-2 bg-amber-50 border border-amber-200 rounded-lg text-left text-sm md:text-xs text-amber-800">
-            <strong>{wrongDropExplanation.card.en}</strong> belongs to {wrongDropExplanation.correctExplain}
+        {/* On mobile: show errors in footer. On desktop: errors shown in right panel */}
+        <div className="sm:hidden">
+          {wrongDropExplanation && (
+            <div className="mb-2 p-3 md:p-2 bg-amber-50 border border-amber-200 rounded-lg text-left text-sm md:text-xs text-amber-800">
+              <strong>{wrongDropExplanation.card.en}</strong> belongs to {wrongDropExplanation.correctExplain}
+            </div>
+          )}
+          <div className={clsx("font-bold text-base md:text-sm", feedback.type === 'error' ? "text-red-600" : feedback.type === 'success' ? "text-green-600" : "text-slate-600")}>
+            {feedback.type === 'error' && <ShieldAlert size={14} className="inline mr-1" />}
+            {feedback.type === 'success' && <Swords size={14} className="inline mr-1" />}
+            {feedback.msg}
           </div>
-        )}
-        <div className={clsx("font-bold text-base md:text-sm", feedback.type === 'error' ? "text-red-600" : feedback.type === 'success' ? "text-green-600" : "text-slate-600")}>
-          {feedback.type === 'error' && <ShieldAlert size={14} className="inline mr-1" />}
-          {feedback.type === 'success' && <Swords size={14} className="inline mr-1" />}
-          {feedback.msg}
+        </div>
+        <div className="hidden sm:block">
+          {feedback.type !== 'error' && (
+            <div className={clsx("font-bold text-base md:text-sm", feedback.type === 'success' ? "text-green-600" : "text-slate-600")}>
+              {feedback.type === 'success' && <Swords size={14} className="inline mr-1" />}
+              {feedback.msg}
+            </div>
+          )}
         </div>
         <div className="text-xs md:text-[10px] text-slate-400 font-mono mt-1">A: {tA.toLocaleString()} | L+E: {(tL + tE).toLocaleString()}</div>
         <div className="mt-2 flex gap-3 justify-center flex-wrap">
@@ -1002,13 +1041,14 @@ export default function BalanceQuest() {
                   <div
                     key={lvl}
                     className={clsx(
-                      "w-16 h-16 rounded-xl flex flex-col items-center justify-center border-2 transition-all",
+                      "w-16 h-16 rounded-xl flex flex-col items-center justify-center border-2 transition-all relative",
                       completed && "bg-emerald-500/20 border-emerald-500 text-emerald-400",
                       current && "bg-amber-500/30 border-amber-400 text-amber-300 ring-2 ring-amber-400/50",
-                      locked && "bg-slate-800 border-slate-600 text-slate-500"
+                      locked && "bg-slate-800 border-slate-600 text-slate-500 opacity-80"
                     )}
                   >
-                    <span className="text-2xl">{completed ? '✓' : locked ? '🔒' : icon}</span>
+                    <span className="text-2xl">{icon}</span>
+                    {completed && <span className="absolute top-0.5 right-0.5 text-emerald-400 text-sm">✓</span>}
                     <span className="text-[10px] font-bold">{lvl}</span>
                     <span className="text-[8px] truncate w-full text-center px-0.5">{bossName}</span>
                   </div>

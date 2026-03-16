@@ -85,49 +85,49 @@ export default function ProfilePage() {
       </header>
 
       <main className="flex-1 flex justify-center px-4 sm:px-6 py-10">
-        <div className="w-full max-w-4xl flex flex-col md:flex-row gap-8 md:gap-12 items-start justify-center">
+        <div className="w-full max-w-4xl flex flex-col md:flex-row gap-8 md:gap-10 items-stretch md:items-start justify-center">
           
           {/* LEFT COLUMN: Avatar & Stats */}
-          <div className="w-full md:w-64 flex flex-col items-center mt-16 md:mt-24">
-            {/* Avatar Container with overlapping design */}
-            <div className="relative z-10 -mb-16">
-              <div className="w-32 h-32 rounded-full border-4 border-[#f8f9fc] shadow-lg overflow-hidden bg-amber-100 flex items-center justify-center">
-                {user.avatarUrl ? (
-                  <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-6xl font-bold text-amber-500">
-                    {profile.displayName?.slice(0, 1).toUpperCase() || 'U'}
-                  </span>
-                )}
+          <div className="w-full md:w-64 flex flex-col items-center">
+            <div className="w-full bg-white rounded-2xl shadow-sm overflow-hidden">
+              {/* Avatar - centered inside card */}
+              <div className="flex justify-center pt-8 pb-4">
+                <div className="relative">
+                  <div className="w-24 h-24 rounded-full border-4 border-white shadow-md overflow-hidden bg-amber-100 flex items-center justify-center ring-2 ring-slate-100">
+                    {user.avatarUrl ? (
+                      <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-4xl font-bold text-amber-500">
+                        {profile.displayName?.slice(0, 1).toUpperCase() || 'U'}
+                      </span>
+                    )}
+                  </div>
+                  <button className="absolute -bottom-1 -right-1 bg-slate-900 text-white p-1.5 rounded-full border-2 border-white hover:bg-slate-800 transition-colors shadow">
+                    <Camera size={14} />
+                  </button>
+                </div>
               </div>
-              <button className="absolute bottom-1 right-1 bg-slate-900 text-white p-2 rounded-full border-2 border-white hover:bg-slate-800 transition-colors">
-                <Camera size={16} />
-              </button>
-            </div>
-
-            {/* Stats Card */}
-            <div className="w-full bg-white rounded-2xl shadow-sm p-6 pt-24 pb-8 flex flex-col gap-8 items-center">
-              <div className="text-center">
-                <p className="text-[10px] font-bold text-slate-400 tracking-widest uppercase mb-1">Total XP</p>
-                <p className="text-2xl font-bold text-slate-800">{stats.xp.toLocaleString()}</p>
-              </div>
-            
-
-              <div className="text-center">
-                <p className="text-[10px] font-bold text-slate-400 tracking-widest uppercase mb-1">Highest Level</p>
-                <p className="text-2xl font-bold text-slate-800">{stats.highestLevel.toLocaleString()}</p>
+              {/* Stats */}
+              <div className="px-6 pb-8 flex flex-col gap-6">
+                <div className="text-center">
+                  <p className="text-[10px] font-bold text-slate-400 tracking-widest uppercase mb-0.5">Total XP</p>
+                  <p className="text-2xl font-bold text-slate-800">{stats.xp.toLocaleString()}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[10px] font-bold text-slate-400 tracking-widest uppercase mb-0.5">Highest Level</p>
+                  <p className="text-2xl font-bold text-slate-800">{stats.highestLevel.toLocaleString()}</p>
+                </div>
               </div>
             </div>
           </div>
 
           {/* RIGHT COLUMN: User Information Form */}
-          <div className="w-full md:w-[400px] bg-white rounded-2xl shadow-sm relative mt-20 md:mt-24">
-            {/* Header Badge */}
-            <div className="absolute top-0 right-1/2 translate-x-1/2 -translate-y-1/2 bg-[#020617] text-white text-xs font-bold uppercase tracking-widest py-3 px-8 rounded-lg shadow-xl z-10 whitespace-nowrap">
-              User Information
+          <div className="w-full md:w-[400px] bg-white rounded-2xl shadow-sm">
+            {/* Header - inside card */}
+            <div className="px-6 pt-6 pb-2">
+              <h2 className="text-xs font-bold text-slate-400 tracking-widest uppercase">User Information</h2>
             </div>
-
-            <form onSubmit={handleSave} className="p-8 pt-10 pb-8 flex flex-col gap-5">
+            <form onSubmit={handleSave} className="p-6 pt-2 pb-8 flex flex-col gap-5">
               
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-bold text-slate-600">Display name</label>
@@ -164,7 +164,7 @@ export default function ProfilePage() {
                 </button>
                 <Link 
                   href="/"
-                  className="bg-white border-2 border-slate-900 text-slate-900 font-bold text-sm px-8 py-3 rounded-lg hover:bg-slate-50 transition-colors text-center"
+                  className="inline-flex items-center justify-center bg-white border-2 border-slate-900 text-slate-900 font-bold text-sm px-8 py-3 rounded-lg hover:bg-slate-50 transition-colors"
                 >
                   Cancel
                 </Link>
