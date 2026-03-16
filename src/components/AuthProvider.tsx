@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
-import { onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth';
+import { onAuthStateChanged, getRedirectResult, type User as FirebaseUser } from 'firebase/auth';
 import { getAuthInstance, isFirebaseConfigured, signOut as firebaseSignOut } from '@/lib/firebase';
 import { getSupabaseClient, isSupabaseConfigured } from '@/lib/supabase';
 
@@ -72,47 +72,82 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setFirebaseUser(user ? mapFirebaseUser(user) : null);
-      setFirebaseLoading(false);
-    });
+    let cancelled = false;
+    let unsubscribe: (() => void) | undefined;
+    const fallback = setTimeout(() => setFirebaseLoading(false), 6000);
 
-    return () => unsubscribe();
+    getRedirectResult(auth)
+      .then(() => {
+        if (cancelled) return;
+        unsubscribe = onAuthStateChanged(auth, (user) => {
+          setFirebaseUser(user ? mapFirebaseUser(user) : null);
+          setFirebaseLoading(false);
+        });
+      })
+      .catch(() => {
+        if (!cancelled) unsubscribe = onAuthStateChanged(auth, (user) => {
+          setFirebaseUser(user ? mapFirebaseUser(user) : null);
+          setFirebaseLoading(false);
+        });
+      });
+
+    return () => {
+      cancelled = true;
+      clearTimeout(fallback);
+      unsubscribe?.();
+    };
   }, [hasFirebase]);
 
   useEffect(() => {
     let cancelled = false;
     let unsubscribe: (() => void) | undefined;
 
+    const timeout = setTimeout(() => {
+      if (!cancelled) {
+        setSupabaseLoading(false);
+        setHasSupabase(false);
+      }
+    }, 6000);
+
     async function initSupabaseAuth() {
-      const configured = await isSupabaseConfigured();
-      if (cancelled) return;
+      try {
+        const configured = await Promise.race([
+          isSupabaseConfigured(),
+          new Promise<boolean>((r) => setTimeout(() => r(false), 5000)),
+        ]);
+        if (cancelled) return;
 
-      setHasSupabase(configured);
-      if (!configured) {
+        setHasSupabase(configured);
+        if (!configured) {
+          setSupabaseLoading(false);
+          return;
+        }
+
+        const client = await getSupabaseClient();
+        if (cancelled) return;
+
+        if (!client) {
+          setSupabaseLoading(false);
+          return;
+        }
+
+        const { data } = await client.auth.getSession();
+        if (cancelled) return;
+
+        setSupabaseUser(data.session?.user ? mapSupabaseUser(data.session.user) : null);
         setSupabaseLoading(false);
-        return;
+
+        const listener = client.auth.onAuthStateChange((_event, session) => {
+          setSupabaseUser(session?.user ? mapSupabaseUser(session.user) : null);
+        });
+
+        unsubscribe = () => listener.data.subscription.unsubscribe();
+      } catch {
+        if (!cancelled) {
+          setHasSupabase(false);
+          setSupabaseLoading(false);
+        }
       }
-
-      const client = await getSupabaseClient();
-      if (cancelled) return;
-
-      if (!client) {
-        setSupabaseLoading(false);
-        return;
-      }
-
-      const { data } = await client.auth.getSession();
-      if (cancelled) return;
-
-      setSupabaseUser(data.session?.user ? mapSupabaseUser(data.session.user) : null);
-      setSupabaseLoading(false);
-
-      const listener = client.auth.onAuthStateChange((_event, session) => {
-        setSupabaseUser(session?.user ? mapSupabaseUser(session.user) : null);
-      });
-
-      unsubscribe = () => listener.data.subscription.unsubscribe();
     }
 
     initSupabaseAuth().catch(() => {
@@ -124,6 +159,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       cancelled = true;
+      clearTimeout(timeout);
       unsubscribe?.();
     };
   }, []);

@@ -23,7 +23,7 @@ import { loadProgress, saveProgress } from '@/lib/storage';
 import { playCorrect, playWrong, playVictory, playDefeat, setMuted, isMuted } from '@/lib/sounds';
 import { ACHIEVEMENTS, checkNewAchievements, checkStreakAchievement } from '@/lib/achievements';
 import confetti from 'canvas-confetti';
-import { Heart, ShieldAlert, Swords, RefreshCw, Trophy, GripHorizontal, Lightbulb, BookOpen, Volume2, VolumeX, BarChart3, Award, Home, Map, Users } from 'lucide-react';
+import { Heart, ShieldAlert, Swords, RefreshCw, Trophy, GripHorizontal, Lightbulb, BookOpen, Volume2, VolumeX, BarChart3, Award, Home, Map, Users, MoreHorizontal } from 'lucide-react';
 import clsx from 'clsx';
 import { AuthButton } from '@/components/AuthButton';
 import { useAppAuth } from '@/components/AuthProvider';
@@ -211,6 +211,7 @@ export default function BalanceQuest() {
   const [newAchievementIds, setNewAchievementIds] = useState<string[]>([]);
   const [deckWidth, setDeckWidth] = useState(192);
   const [isResizing, setIsResizing] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
   const resizeStartRef = React.useRef({ x: 0, w: 0 });
 
   const config = DIFFICULTY_CONFIG[difficulty];
@@ -729,103 +730,78 @@ export default function BalanceQuest() {
     );
   }
 
-  const KEY_BOSS_LEVELS = [1, 5, 10, 15, 20];
-
   return (
     <div className={clsx("min-h-screen md:h-screen flex flex-col overflow-y-auto md:overflow-hidden bg-slate-50", shake && "animate-shake", isResizing && "select-none cursor-col-resize")}>
-      <header className="flex-shrink-0 bg-white border-b p-3 md:p-2 pt-safe">
-        {/* Mobile: compact single-line header. Desktop: journey bar with icons only at key bosses */}
-        <div className="max-w-6xl mx-auto">
-          <div className="hidden md:block mb-2 overflow-x-auto">
-            <div className="flex items-center gap-0.5">
-              {Array.from({ length: MAX_LEVEL }, (_, i) => {
-                const lvl = i + 1;
-                const completed = level > lvl;
-                const current = level === lvl;
-                const locked = level < lvl;
-                const isKeyBoss = KEY_BOSS_LEVELS.includes(lvl);
-                const icon = BOSS_ICONS[lvl] || '👾';
-                return (
-                  <div
-                    key={lvl}
-                    className={clsx(
-                      "flex-1 min-w-[4px] flex flex-col items-center gap-0.5 transition-colors",
-                      completed && "text-emerald-600",
-                      current && "text-amber-500",
-                      locked && "text-slate-300"
-                    )}
-                    title={`Lv${lvl} ${BOSS_NAMES[lvl] || ''}`}
-                  >
-                    <span className="text-[10px] leading-none">
-                      {completed ? '✓' : isKeyBoss ? icon : '•'}
-                    </span>
-                    <div className={clsx("h-1 w-full rounded-sm transition-colors", completed && "bg-emerald-500", current && "bg-amber-500 ring-1 ring-amber-400", locked && "bg-slate-200")} />
-                  </div>
-                );
-              })}
-            </div>
-            <div className="flex justify-between text-[9px] text-slate-400 mt-0.5">
-              <span>Lv1 {BOSS_ICONS[1]}</span>
-              <span className="text-amber-600 font-bold">Lv{level} {BOSS_NAMES[level]}</span>
-              <span>Lv{MAX_LEVEL} {BOSS_ICONS[20]} King</span>
-            </div>
-          </div>
-          {/* Mobile: compact progress */}
-          <div className="md:hidden flex items-center gap-2 mb-2">
-            <div className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden">
-              <div className="h-full bg-amber-500 rounded-full transition-all" style={{ width: `${(level / MAX_LEVEL) * 100}%` }} />
-            </div>
-            <span className="text-xs font-bold text-slate-600 shrink-0">Lv {level}/{MAX_LEVEL}</span>
-          </div>
-        </div>
-        <div className="max-w-6xl mx-auto flex flex-wrap justify-between items-center gap-2">
-          <div className="flex items-center gap-1 sm:gap-2">
-            <div className="w-16 sm:w-24 h-3 bg-slate-200 rounded-full overflow-hidden shrink-0">
+      <header className="flex-shrink-0 bg-white border-b px-3 py-2 pt-safe">
+        <div className="max-w-6xl mx-auto flex items-center justify-between gap-2">
+          {/* Left: Boss */}
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-12 sm:w-20 h-2 bg-slate-200 rounded-full overflow-hidden shrink-0">
               <MotionDiv className="h-full bg-red-500" initial={{ width: '100%' }} animate={{ width: `${(bossHp / maxBossHp) * 100}%` }} />
             </div>
-            <span className={clsx("text-2xl", bossShake && "scale-125")}>👾</span>
-            <span className="text-xs font-medium text-slate-600 hidden sm:inline">{BOSS_NAMES[level] || `Lv${level}`}</span>
+            <span className={clsx("text-lg shrink-0", bossShake && "scale-110")}>👾</span>
+            <span className="text-xs font-medium text-slate-600 truncate hidden sm:inline">{BOSS_NAMES[level] || `Lv${level}`}</span>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-amber-500">Lv {level}</span>
-            <span className="font-bold flex items-center gap-1"><Trophy size={14} className="text-yellow-500" />{xp}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className={clsx("px-2 py-1 rounded font-mono font-bold text-sm", practiceMode ? "bg-emerald-100 text-emerald-600" : timeLeft <= 60 ? "bg-red-100 text-red-600" : timeLeft <= 120 ? "bg-amber-100 text-amber-600" : "bg-slate-100")}>
+
+          {/* Center: Lv, XP, Timer, Hearts */}
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-xs font-bold text-amber-600">Lv{level}</span>
+            <span className="font-bold flex items-center gap-0.5 text-sm"><Trophy size={14} className="text-yellow-500" />{xp}</span>
+            <div className={clsx("px-1.5 py-0.5 rounded text-xs font-mono font-bold", practiceMode ? "bg-emerald-100 text-emerald-600" : timeLeft <= 60 ? "bg-red-100 text-red-600" : "bg-slate-100 text-slate-600")}>
               {practiceMode ? "∞" : `${Math.floor(timeLeft / 60)}:${(timeLeft % 60).toString().padStart(2, '0')}`}
             </div>
-            <div className="flex gap-0.5">
-              {!practiceMode && [...Array(Math.min(maxPlayerHp, 5))].map((_, i) => <Heart key={i} size={18} className={i < playerHp ? "fill-red-500 text-red-500" : "text-slate-200"} />)}
-              {practiceMode && <span className="text-xs text-slate-500">∞</span>}
-            </div>
+            {!practiceMode && [...Array(Math.min(maxPlayerHp, 5))].map((_, i) => <Heart key={i} size={18} className={i < playerHp ? "fill-red-500 text-red-500" : "text-slate-200"} />)}
+            {practiceMode && <span className="text-xs text-slate-500">∞</span>}
+          </div>
+
+          {/* Right: Actions */}
+          <div className="flex items-center gap-0.5 shrink-0">
             <button
-              onClick={() => {
-                const next = !muted;
-                setMutedState(next);
-                setMuted(next);
-                if (typeof window !== 'undefined') localStorage.setItem('balance-quest-muted', next ? '1' : '0');
-              }}
-              className="p-2.5 md:p-1 rounded-lg md:rounded hover:bg-slate-100 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
+              onClick={() => { const next = !muted; setMutedState(next); setMuted(next); if (typeof window !== 'undefined') localStorage.setItem('balance-quest-muted', next ? '1' : '0'); }}
+              className="p-2 rounded hover:bg-slate-100 touch-manipulation min-w-[40px] min-h-[40px] flex items-center justify-center"
               title={muted ? "Unmute" : "Mute"}
             >
-              {muted ? <VolumeX size={20} className="text-slate-500" /> : <Volume2 size={20} className="text-slate-600" />}
+              {muted ? <VolumeX size={18} className="text-slate-500" /> : <Volume2 size={18} className="text-slate-600" />}
             </button>
-            <button onClick={() => setShowMap(true)} className="p-2.5 md:p-1 rounded-lg md:rounded hover:bg-slate-100 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center" title="Progression Map">
-              <Map size={20} className="text-slate-600" />
-            </button>
-            <button onClick={() => setShowStats(true)} className="p-2.5 md:p-1 rounded-lg md:rounded hover:bg-slate-100 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center" title="Stats & Achievements">
-              <BarChart3 size={20} className="text-slate-600" />
-            </button>
-            <button onClick={() => { const current = getSignedInLeaderboardUser(); setShowLeaderboard(true); void refreshLeaderboard(current?.id); }} className="p-2.5 md:p-1 rounded-lg md:rounded hover:bg-slate-100 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center" title="Leaderboard">
-              <Users size={20} className="text-slate-600" />
-            </button>
-            <button onClick={() => { setGameStarted(false); setShowStats(false); }} className="p-2.5 md:p-1 rounded-lg md:rounded hover:bg-slate-100 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center" title="Back to menu">
-              <Home size={20} className="text-slate-600" />
+            <div className="relative">
+              <button
+                onClick={() => setShowMoreMenu((v) => !v)}
+                className={clsx("p-2 rounded hover:bg-slate-100 touch-manipulation min-w-[40px] min-h-[40px] flex items-center justify-center", showMoreMenu && "bg-slate-100")}
+                title="More"
+              >
+                <MoreHorizontal size={18} className="text-slate-600" />
+              </button>
+              {showMoreMenu && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowMoreMenu(false)} />
+                  <div className="absolute right-0 top-full mt-1 z-50 py-1 bg-white rounded-lg border border-slate-200 shadow-lg min-w-[140px]">
+                    <button onClick={() => { setShowMap(true); setShowMoreMenu(false); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                      <Map size={16} /> Map
+                    </button>
+                    <button onClick={() => { setShowStats(true); setShowMoreMenu(false); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                      <BarChart3 size={16} /> Stats
+                    </button>
+                    <button onClick={() => { const current = getSignedInLeaderboardUser(); setShowLeaderboard(true); void refreshLeaderboard(current?.id); setShowMoreMenu(false); }} className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                      <Users size={16} /> Leaderboard
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+            <button onClick={() => { setGameStarted(false); setShowStats(false); setShowMoreMenu(false); }} className="p-2 rounded hover:bg-slate-100 touch-manipulation min-w-[40px] min-h-[40px] flex items-center justify-center" title="Menu">
+              <Home size={18} className="text-slate-600" />
             </button>
             <div className="hidden sm:block">
               <AuthButton />
             </div>
           </div>
+        </div>
+        {/* Progress bar */}
+        <div className="max-w-6xl mx-auto mt-1.5 flex items-center gap-2">
+          <div className="flex-1 h-1 bg-slate-200 rounded-full overflow-hidden">
+            <div className="h-full bg-amber-500 rounded-full transition-all" style={{ width: `${(level / MAX_LEVEL) * 100}%` }} />
+          </div>
+          <span className="text-[10px] font-medium text-slate-400 shrink-0">{level}/{MAX_LEVEL}</span>
         </div>
       </header>
 
@@ -840,10 +816,10 @@ export default function BalanceQuest() {
       )}
 
       {levelTip && (
-        <div className="flex-shrink-0 bg-amber-50 border-b border-amber-200 px-4 py-3 md:px-3 md:py-2">
-          <p className="text-sm md:text-xs text-amber-800 flex items-center gap-2">
-            <Lightbulb size={18} className="text-amber-500 shrink-0" />
-            <span>{levelTip}</span>
+        <div className="flex-shrink-0 bg-amber-50/80 border-b border-amber-200/60 px-3 py-2">
+          <p className="text-xs text-amber-800 flex items-center gap-2">
+            <Lightbulb size={14} className="text-amber-500 shrink-0" />
+            <span className="line-clamp-1">{levelTip}</span>
           </p>
         </div>
       )}
