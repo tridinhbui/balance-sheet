@@ -187,6 +187,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       await Promise.allSettled(tasks);
+
+      // Wipe local storage so new accounts don't inherit the previous user's game state
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('balance-quest-progress');
+        window.location.href = '/'; 
+      }
     },
   }), [firebaseLoading, firebaseUser, hasFirebase, hasSupabase, supabaseLoading, supabaseUser]);
 

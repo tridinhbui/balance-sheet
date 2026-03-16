@@ -1,6 +1,7 @@
 const STORAGE_KEY = 'balance-quest-progress';
 
 export type SavedProgress = {
+  userId?: string;
   level: number;
   highestLevel: number;
   xp: number;
