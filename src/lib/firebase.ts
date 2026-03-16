@@ -1,11 +1,13 @@
 import { initializeApp, type FirebaseApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut as fbSignOut, type User } from 'firebase/auth';
-import { getFirestore, doc, setDoc, getDoc, collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut as fbSignOut, updateProfile, type User } from 'firebase/auth';
+import { getFirestore, doc, setDoc, getDoc, collection, getDocs, query, orderBy, limit, where } from 'firebase/firestore';
 import type { SavedProgress } from './storage';
 
 export type LeaderboardEntry = {
   userId: string;
   displayName: string;
+  avatarUrl: string;
+  bestLevel: number;
   totalLevelsWon: number;
   updatedAt: string;
 };
@@ -73,35 +75,111 @@ export async function loadProgressFromCloud(userId: string): Promise<Partial<Sav
   return rest as Partial<SavedProgress>;
 }
 
-/** Add/update user in leaderboard when they reach 5+ levels. Call on victory. */
-export async function addToLeaderboard(userId: string, displayName: string, totalLevelsWon: number): Promise<void> {
+export type UserProfile = {
+  firstName: string;
+  lastName: string;
+  displayName: string;
+};
+
+export async function saveUserProfileToCloud(userId: string, profile: Partial<UserProfile>) {
   const db = getDb();
-  if (!db || totalLevelsWon < 5) return;
-  const name = (displayName || 'Anonymous').trim().slice(0, 50);
-  await setDoc(doc(db, 'leaderboard', userId), {
-    displayName: name,
-    totalLevelsWon,
+  if (!db) return;
+  await setDoc(doc(db, 'users', userId, 'profile', 'info'), {
+    ...profile,
     updatedAt: new Date().toISOString(),
   }, { merge: true });
+
+  const auth = getAuthInstance();
+  if (auth?.currentUser && profile.displayName) {
+    await updateProfile(auth.currentUser, { displayName: profile.displayName }).catch(() => {});
+  }
 }
 
-/** Fetch leaderboard entries sorted by totalLevelsWon desc */
+export async function loadUserProfileFromCloud(userId: string): Promise<Partial<UserProfile> | null> {
+  const db = getDb();
+  if (!db) return null;
+  const snap = await getDoc(doc(db, 'users', userId, 'profile', 'info'));
+  if (!snap.exists()) return null;
+  const data = snap.data();
+  const { updatedAt, ...rest } = data;
+  return rest as Partial<UserProfile>;
+}
+
+/**
+ * Add/update user in leaderboard only when they achieve a new higher best level (>= 5).
+ * Returns true when a DB write happened.
+ */
+export async function addToLeaderboard(
+  userId: string,
+  displayName: string,
+  avatarUrl: string,
+  totalLevelsWon: number,
+  bestLevel: number,
+): Promise<boolean> {
+  const db = getDb();
+  console.log(`[addToLeaderboard] called for user=${userId}, bestLevel=${bestLevel} (totalWon=${totalLevelsWon})`);
+  const normalizedBestLevel = Math.max(1, Math.floor(bestLevel || 1));
+  if (!db || normalizedBestLevel < 5) {
+    console.log(`[addToLeaderboard] SKIPPED: DB unavailable or bestLevel (${normalizedBestLevel}) < 5`);
+    return false;
+  }
+
+  const ref = doc(db, 'leaderboard', userId);
+  const snap = await getDoc(ref);
+  const existing = snap.exists() ? snap.data() : null;
+  const existingBestLevel = existing?.bestLevel || 0;
+  const existingTotalLevelsWon = existing?.totalLevelsWon || 0;
+
+  // Skip writes unless this user has reached a strictly higher best level.
+  if (existingBestLevel >= normalizedBestLevel) {
+    console.log(`[addToLeaderboard] SKIPPED: existingBestLevel (${existingBestLevel}) >= newBestLevel (${normalizedBestLevel})`);
+    return false;
+  }
+
+  console.log(`[addToLeaderboard] ATTEMPTING SAVE: Updating to bestLevel=${normalizedBestLevel}`);
+
+  const name = (displayName || 'Anonymous').trim().slice(0, 50);
+  await setDoc(ref, {
+    displayName: name,
+    avatarUrl: (avatarUrl || '').trim(),
+    totalLevelsWon: Math.max(totalLevelsWon, existingTotalLevelsWon),
+    bestLevel: Math.max(normalizedBestLevel, existingBestLevel),
+    updatedAt: new Date().toISOString(),
+  }, { merge: true });
+
+  console.log(`[addToLeaderboard] SUCCESS`);
+
+  return true;
+}
+
+/** Fetch leaderboard entries filtered by bestLevel >= 5 and sorted by bestLevel desc */
 export async function getLeaderboard(maxEntries = 50): Promise<LeaderboardEntry[]> {
   const db = getDb();
   if (!db) return [];
   const q = query(
     collection(db, 'leaderboard'),
-    orderBy('totalLevelsWon', 'desc'),
+    where('bestLevel', '>=', 5),
+    orderBy('bestLevel', 'desc'),
     limit(maxEntries)
   );
+  console.log('[getLeaderboard] Fetching leaderboard from Firestore...');
   const snap = await getDocs(q);
-  return snap.docs.map((d) => {
+  console.log(`[getLeaderboard] Fetched ${snap.docs.length} entries from Firestore.`);
+  const rows = snap.docs.map((d) => {
     const data = d.data();
     return {
       userId: d.id,
       displayName: data.displayName || 'Anonymous',
+      avatarUrl: data.avatarUrl || '',
+      bestLevel: data.bestLevel || data.totalLevelsWon || 1,
       totalLevelsWon: data.totalLevelsWon || 0,
       updatedAt: data.updatedAt || '',
     };
+  });
+
+  return rows.sort((a, b) => {
+    if (b.bestLevel !== a.bestLevel) return b.bestLevel - a.bestLevel;
+    if (b.totalLevelsWon !== a.totalLevelsWon) return b.totalLevelsWon - a.totalLevelsWon;
+    return (b.updatedAt || '').localeCompare(a.updatedAt || '');
   });
 }
