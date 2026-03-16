@@ -1,7 +1,14 @@
 import { initializeApp, type FirebaseApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut as fbSignOut, type User } from 'firebase/auth';
-import { getFirestore, doc, setDoc, getDoc } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, getDoc, collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
 import type { SavedProgress } from './storage';
+
+export type LeaderboardEntry = {
+  userId: string;
+  displayName: string;
+  totalLevelsWon: number;
+  updatedAt: string;
+};
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -64,4 +71,37 @@ export async function loadProgressFromCloud(userId: string): Promise<Partial<Sav
   const data = snap.data();
   const { updatedAt, ...rest } = data;
   return rest as Partial<SavedProgress>;
+}
+
+/** Add/update user in leaderboard when they reach 5+ levels. Call on victory. */
+export async function addToLeaderboard(userId: string, displayName: string, totalLevelsWon: number): Promise<void> {
+  const db = getDb();
+  if (!db || totalLevelsWon < 5) return;
+  const name = (displayName || 'Anonymous').trim().slice(0, 50);
+  await setDoc(doc(db, 'leaderboard', userId), {
+    displayName: name,
+    totalLevelsWon,
+    updatedAt: new Date().toISOString(),
+  }, { merge: true });
+}
+
+/** Fetch leaderboard entries sorted by totalLevelsWon desc */
+export async function getLeaderboard(maxEntries = 50): Promise<LeaderboardEntry[]> {
+  const db = getDb();
+  if (!db) return [];
+  const q = query(
+    collection(db, 'leaderboard'),
+    orderBy('totalLevelsWon', 'desc'),
+    limit(maxEntries)
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => {
+    const data = d.data();
+    return {
+      userId: d.id,
+      displayName: data.displayName || 'Anonymous',
+      totalLevelsWon: data.totalLevelsWon || 0,
+      updatedAt: data.updatedAt || '',
+    };
+  });
 }

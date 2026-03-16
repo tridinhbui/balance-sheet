@@ -23,10 +23,10 @@ import { loadProgress, saveProgress } from '@/lib/storage';
 import { playCorrect, playWrong, playVictory, playDefeat, setMuted, isMuted } from '@/lib/sounds';
 import { ACHIEVEMENTS, checkNewAchievements, checkStreakAchievement } from '@/lib/achievements';
 import confetti from 'canvas-confetti';
-import { Heart, ShieldAlert, Swords, RefreshCw, Trophy, GripHorizontal, Lightbulb, BookOpen, Volume2, VolumeX, BarChart3, Award, Home, Map } from 'lucide-react';
+import { Heart, ShieldAlert, Swords, RefreshCw, Trophy, GripHorizontal, Lightbulb, BookOpen, Volume2, VolumeX, BarChart3, Award, Home, Map, Users } from 'lucide-react';
 import clsx from 'clsx';
 import { AuthButton } from '@/components/AuthButton';
-import { getAuthInstance, saveProgressToCloud, loadProgressFromCloud, isFirebaseConfigured } from '@/lib/firebase';
+import { getAuthInstance, saveProgressToCloud, loadProgressFromCloud, isFirebaseConfigured, addToLeaderboard, getLeaderboard, type LeaderboardEntry } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
 // --- COMPONENTS ---
@@ -197,6 +197,8 @@ export default function BalanceQuest() {
   const [achievements, setAchievements] = useState<string[]>([]);
   const [showStats, setShowStats] = useState(false);
   const [showMap, setShowMap] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [newAchievementIds, setNewAchievementIds] = useState<string[]>([]);
   const [deckWidth, setDeckWidth] = useState(192);
   const [isResizing, setIsResizing] = useState(false);
@@ -379,6 +381,7 @@ export default function BalanceQuest() {
       setBossHp((p) => {
         const n = p - 1;
         if (n <= 0) {
+          const newTotalWon = totalLevelsWon + 1;
           setGameState('won');
           setTotalLevelsWon((w) => w + 1);
           confetti({ particleCount: 100, spread: 60, origin: { y: 0.6 } });
@@ -386,6 +389,10 @@ export default function BalanceQuest() {
           if (!muted) playVictory();
           const newXp = xp + 50 + (correctStreak >= 3 ? STREAK_BONUS : 0);
           saveProgress({ highScore: Math.max(loadProgress().highScore, newXp) });
+          if (newTotalWon >= 5) {
+            const user = getAuthInstance()?.currentUser;
+            if (user) addToLeaderboard(user.uid, user.displayName || 'Anonymous', newTotalWon).catch(() => {});
+          }
           const newAchievs = checkNewAchievements(
             { totalLevelsWon: totalLevelsWon + 1, level, totalCorrect: totalCorrect + 1, totalAttempts: totalAttempts + 1, xp: newXp, achievements },
             levelCorrect + 1, levelAttempts + 1, practiceMode
@@ -444,7 +451,14 @@ export default function BalanceQuest() {
   // --- START SCREEN ---
   if (!gameStarted) {
     return (
-      <div className="min-h-screen flex flex-col bg-white overflow-y-auto pt-safe pb-safe">
+      <div className="min-h-screen flex flex-col bg-white overflow-y-auto pt-safe pb-safe relative">
+        {/* Login + Leaderboard in top-right corner */}
+        <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-10 flex items-center gap-2">
+          <button onClick={() => { setShowLeaderboard(true); getLeaderboard().then(setLeaderboard); }} className="text-slate-500 hover:text-slate-800 text-sm font-medium flex items-center gap-1.5 py-2 px-3 rounded-lg hover:bg-slate-100 transition-colors">
+            <Users size={18} /> Leaderboard
+          </button>
+          <AuthButton />
+        </div>
         <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 sm:py-16">
           <MotionDiv
             initial={{ opacity: 0, y: 12 }}
@@ -508,12 +522,34 @@ export default function BalanceQuest() {
               <button onClick={() => setShowStats(true)} className="text-slate-500 hover:text-slate-800 transition-colors py-1">
                 Stats
               </button>
-              <AuthButton />
             </div>
-            {isFirebaseConfigured() && <p className="text-slate-400 text-[11px] mt-3">Sign in to sync progress across devices</p>}
+            {isFirebaseConfigured() && <p className="text-slate-400 text-[11px] mt-3">Sign in (top right) to sync progress across devices</p>}
           </MotionDiv>
         </div>
         <p className="text-center text-slate-400 text-xs pb-6">Drag & drop or tap • Assets = Liabilities + Equity</p>
+
+        {showLeaderboard && (
+          <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4 overflow-y-auto pt-safe pb-safe" onClick={() => setShowLeaderboard(false)}>
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 border border-slate-200 my-auto" onClick={(e) => e.stopPropagation()}>
+              <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2 mb-2">
+                <Users size={24} className="text-amber-500" /> Leaderboard
+              </h2>
+              <p className="text-slate-500 text-sm mb-4">Players who completed 5+ levels (sign in to add your name)</p>
+              <div className="max-h-64 overflow-y-auto space-y-2">
+                {leaderboard.length === 0 && <p className="text-slate-400 text-sm py-4 text-center">No entries yet. Be the first!</p>}
+                {leaderboard.map((entry, i) => (
+                  <div key={entry.userId} className="flex items-center justify-between py-2 px-3 rounded-lg bg-slate-50">
+                    <span className="font-medium text-slate-800">
+                      {i + 1}. {entry.displayName}
+                    </span>
+                    <span className="text-sm font-bold text-amber-600">{entry.totalLevelsWon} levels</span>
+                  </div>
+                ))}
+              </div>
+              <button onClick={() => setShowLeaderboard(false)} className="mt-4 w-full py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-medium min-h-[48px] touch-manipulation">Close</button>
+            </div>
+          </div>
+        )}
 
         {showMap && (
           <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4 overflow-y-auto pt-safe pb-safe" onClick={() => setShowMap(false)}>
@@ -584,17 +620,21 @@ export default function BalanceQuest() {
     );
   }
 
+  const KEY_BOSS_LEVELS = [1, 5, 10, 15, 20];
+
   return (
     <div className={clsx("min-h-screen md:h-screen flex flex-col overflow-y-auto md:overflow-hidden bg-slate-50", shake && "animate-shake", isResizing && "select-none cursor-col-resize")}>
       <header className="flex-shrink-0 bg-white border-b p-3 md:p-2 pt-safe">
-        {/* Mobile: compact single-line header. Desktop: full journey bar */}
+        {/* Mobile: compact single-line header. Desktop: journey bar with icons only at key bosses */}
         <div className="max-w-6xl mx-auto">
           <div className="hidden md:block mb-2 overflow-x-auto">
             <div className="flex items-center gap-0.5">
-              {Array.from({ length: MAX_LEVEL }, (_, i) => i + 1).map((lvl) => {
+              {Array.from({ length: MAX_LEVEL }, (_, i) => {
+                const lvl = i + 1;
                 const completed = level > lvl;
                 const current = level === lvl;
                 const locked = level < lvl;
+                const isKeyBoss = KEY_BOSS_LEVELS.includes(lvl);
                 const icon = BOSS_ICONS[lvl] || '👾';
                 return (
                   <div
@@ -607,7 +647,9 @@ export default function BalanceQuest() {
                     )}
                     title={`Lv${lvl} ${BOSS_NAMES[lvl] || ''}`}
                   >
-                    <span className="text-[10px] leading-none">{completed ? '✓' : icon}</span>
+                    <span className="text-[10px] leading-none">
+                      {completed ? '✓' : isKeyBoss ? icon : '•'}
+                    </span>
                     <div className={clsx("h-1 w-full rounded-sm transition-colors", completed && "bg-emerald-500", current && "bg-amber-500 ring-1 ring-amber-400", locked && "bg-slate-200")} />
                   </div>
                 );
@@ -615,7 +657,7 @@ export default function BalanceQuest() {
             </div>
             <div className="flex justify-between text-[9px] text-slate-400 mt-0.5">
               <span>Lv1 {BOSS_ICONS[1]}</span>
-              <span className="text-amber-600 font-bold">Lv{level} {BOSS_ICONS[level]} {BOSS_NAMES[level]}</span>
+              <span className="text-amber-600 font-bold">Lv{level} {BOSS_NAMES[level]}</span>
               <span>Lv{MAX_LEVEL} {BOSS_ICONS[20]} King</span>
             </div>
           </div>
@@ -664,6 +706,9 @@ export default function BalanceQuest() {
             </button>
             <button onClick={() => setShowStats(true)} className="p-2.5 md:p-1 rounded-lg md:rounded hover:bg-slate-100 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center" title="Stats & Achievements">
               <BarChart3 size={20} className="text-slate-600" />
+            </button>
+            <button onClick={() => { setShowLeaderboard(true); getLeaderboard().then(setLeaderboard); }} className="p-2.5 md:p-1 rounded-lg md:rounded hover:bg-slate-100 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center" title="Leaderboard">
+              <Users size={20} className="text-slate-600" />
             </button>
             <button onClick={() => { setGameStarted(false); setShowStats(false); }} className="p-2.5 md:p-1 rounded-lg md:rounded hover:bg-slate-100 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center" title="Back to menu">
               <Home size={20} className="text-slate-600" />
@@ -891,6 +936,27 @@ export default function BalanceQuest() {
               <span><span className="text-slate-500">🔒</span> Locked</span>
             </div>
             <button onClick={() => setShowMap(false)} className="mt-4 w-full py-3 md:py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-bold min-h-[48px] touch-manipulation">Close</button>
+          </div>
+        </div>
+      )}
+
+      {showLeaderboard && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4 pt-safe pb-safe overflow-y-auto" onClick={() => setShowLeaderboard(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 my-auto border border-slate-200" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2 mb-2">
+              <Users size={24} className="text-amber-500" /> Leaderboard
+            </h2>
+            <p className="text-slate-500 text-sm mb-4">Players who completed 5+ levels</p>
+            <div className="max-h-64 overflow-y-auto space-y-2">
+              {leaderboard.length === 0 && <p className="text-slate-400 text-sm py-4 text-center">No entries yet. Be the first!</p>}
+              {leaderboard.map((entry, i) => (
+                <div key={entry.userId} className="flex items-center justify-between py-2 px-3 rounded-lg bg-slate-50">
+                  <span className="font-medium text-slate-800">{i + 1}. {entry.displayName}</span>
+                  <span className="text-sm font-bold text-amber-600">{entry.totalLevelsWon} levels</span>
+                </div>
+              ))}
+            </div>
+            <button onClick={() => setShowLeaderboard(false)} className="mt-4 w-full py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-medium min-h-[48px] touch-manipulation">Close</button>
           </div>
         </div>
       )}
