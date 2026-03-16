@@ -12,6 +12,7 @@
     "@tailwindcss/postcss": "^4.2.1",
     "canvas-confetti": "^1.9.0",
     "clsx": "^2.0.0",
+    "firebase": "^12.10.0",
     "framer-motion": "^10.16.4",
     "lucide-react": "^0.292.0",
     "next": "latest",

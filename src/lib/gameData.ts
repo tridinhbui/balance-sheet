@@ -117,6 +117,30 @@ export const ACCOUNTS = {
 
 export type AccountCategory = 'currentAssets' | 'fixedAssets' | 'currentLiab' | 'longTermLiab' | 'equityCapital' | 'equityRetained';
 
+export const CATEGORY_CARD_STYLE: Record<AccountCategory, { border: string; bg: string; accent: string }> = {
+  currentAssets: { border: 'border-l-4 border-l-blue-500', bg: 'bg-blue-50/50', accent: 'text-blue-600' },
+  fixedAssets: { border: 'border-l-4 border-l-indigo-500', bg: 'bg-indigo-50/50', accent: 'text-indigo-600' },
+  currentLiab: { border: 'border-l-4 border-l-orange-500', bg: 'bg-orange-50/50', accent: 'text-orange-600' },
+  longTermLiab: { border: 'border-l-4 border-l-amber-600', bg: 'bg-amber-50/50', accent: 'text-amber-700' },
+  equityCapital: { border: 'border-l-4 border-l-emerald-500', bg: 'bg-emerald-50/50', accent: 'text-emerald-600' },
+  equityRetained: { border: 'border-l-4 border-l-teal-500', bg: 'bg-teal-50/50', accent: 'text-teal-600' },
+};
+
+export const MAX_LEVEL = 20;
+export const BOSS_NAMES: Record<number, string> = {
+  1: 'Slime', 2: 'Goblin', 3: 'Skeleton', 4: 'Orc', 5: 'Troll',
+  6: 'Minotaur', 7: 'Hydra', 8: 'Phoenix', 9: 'Dragon', 10: 'Demon',
+  11: 'Titan', 12: 'Behemoth', 13: 'Leviathan', 14: 'Cerberus', 15: 'Chimera',
+  16: 'Kraken', 17: 'Fenrir', 18: 'Jormungandr', 19: 'Surtur', 20: 'Imbalance King',
+};
+
+export const BOSS_ICONS: Record<number, string> = {
+  1: '🟢', 2: '👺', 3: '💀', 4: '👹', 5: '🧌',
+  6: '🐂', 7: '🐉', 8: '🔥', 9: '🐲', 10: '😈',
+  11: '⚡', 12: '🦣', 13: '🐋', 14: '🐕', 15: '🦁',
+  16: '🦑', 17: '🐺', 18: '🐍', 19: '🔥', 20: '👑',
+};
+
 export const CATEGORY_EXPLANATIONS: Record<AccountCategory, { title: string; explain: string }> = {
   currentAssets: {
     title: "Current Assets",
