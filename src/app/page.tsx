@@ -288,7 +288,7 @@ export default function BalanceQuest() {
   const startLevel = () => {
     const items: AccountItem[] = [];
     let totalA = 0, totalL = 0;
-    const shuf = (arr: { en: string; vi: string }[]) => [...arr].sort(() => 0.5 - Math.random());
+    const shuf = (arr: { en: string }[]) => [...arr].sort(() => 0.5 - Math.random());
     const mult = config.cardMultiplier;
 
     const nCurA = Math.max(2, Math.floor((2 + Math.floor(level * 0.5)) * mult));
@@ -457,7 +457,7 @@ export default function BalanceQuest() {
               Balance <span className="text-amber-500">Quest</span>
             </h1>
             <p className="text-slate-500 text-sm sm:text-base mb-8 sm:mb-10">
-              Học Bảng cân đối kế toán qua game
+              Learn the Balance Sheet through gameplay
             </p>
 
             {/* Difficulty - compact pills */}
@@ -473,7 +473,7 @@ export default function BalanceQuest() {
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                   )}
                 >
-                  {d === 'easy' ? 'Dễ' : d === 'medium' ? 'TB' : 'Khó'}
+                  {d === 'easy' ? 'Easy' : d === 'medium' ? 'Medium' : 'Hard'}
                 </button>
               ))}
             </div>
@@ -484,44 +484,44 @@ export default function BalanceQuest() {
                 onClick={() => { setPracticeMode(true); setGameStarted(true); }}
                 className="px-8 py-3.5 rounded-xl border-2 border-slate-200 text-slate-700 font-semibold hover:border-slate-300 hover:bg-slate-50 transition-all min-h-[52px] touch-manipulation"
               >
-                Luyện tập
+                Practice
               </button>
               <button
                 onClick={() => { setPracticeMode(false); setGameStarted(true); }}
                 className="px-8 py-3.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl transition-all min-h-[52px] touch-manipulation"
               >
-                Bắt đầu
+                Start Game
               </button>
             </div>
 
             <p className="text-slate-400 text-xs mb-8">
-              {difficulty === 'easy' && '90s • 5 mạng'}
-              {difficulty === 'medium' && '120s • 3 mạng'}
-              {difficulty === 'hard' && '90s • 2 mạng'}
+              {difficulty === 'easy' && '90s • 5 lives'}
+              {difficulty === 'medium' && '120s • 3 lives'}
+              {difficulty === 'hard' && '90s • 2 lives'}
             </p>
 
             {/* Secondary links - minimal */}
             <div className="flex flex-wrap justify-center gap-4 sm:gap-6 text-sm">
               <button onClick={() => setShowMap(true)} className="text-slate-500 hover:text-slate-800 transition-colors py-1">
-                Bản đồ
+                Map
               </button>
               <button onClick={() => setShowStats(true)} className="text-slate-500 hover:text-slate-800 transition-colors py-1">
-                Thống kê
+                Stats
               </button>
               <AuthButton />
             </div>
-            {isFirebaseConfigured() && <p className="text-slate-400 text-[11px] mt-3">Đăng nhập để đồng bộ tiến độ</p>}
+            {isFirebaseConfigured() && <p className="text-slate-400 text-[11px] mt-3">Sign in to sync progress across devices</p>}
           </MotionDiv>
         </div>
-        <p className="text-center text-slate-400 text-xs pb-6">Kéo thả hoặc chạm • Tài sản = Nợ + Vốn</p>
+        <p className="text-center text-slate-400 text-xs pb-6">Drag & drop or tap • Assets = Liabilities + Equity</p>
 
         {showMap && (
           <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4 overflow-y-auto pt-safe pb-safe" onClick={() => setShowMap(false)}>
             <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6 border border-slate-200 my-auto" onClick={(e) => e.stopPropagation()}>
               <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2 mb-2">
-                <Map size={24} className="text-amber-500" /> Bản đồ tiến độ
+                <Map size={24} className="text-amber-500" /> Progression Map
               </h2>
-              <p className="text-slate-500 text-sm mb-4">{MAX_LEVEL} màn • Đánh bại Vua mất cân đối!</p>
+              <p className="text-slate-500 text-sm mb-4">{MAX_LEVEL} levels • Defeat the Imbalance King!</p>
               <div className="flex flex-wrap gap-2 justify-center">
                 {Array.from({ length: MAX_LEVEL }, (_, i) => i + 1).map((lvl) => {
                   const completed = level > lvl;
@@ -547,11 +547,11 @@ export default function BalanceQuest() {
                 })}
               </div>
               <div className="mt-4 flex gap-4 text-xs text-slate-500">
-                <span><span className="text-emerald-500">✓</span> Hoàn thành</span>
-                <span><span className="text-amber-500">{BOSS_ICONS[level] || '👾'}</span> Hiện tại</span>
-                <span><span className="text-slate-400">🔒</span> Khóa</span>
+                <span><span className="text-emerald-500">✓</span> Completed</span>
+                <span><span className="text-amber-500">{BOSS_ICONS[level] || '👾'}</span> Current</span>
+                <span><span className="text-slate-400">🔒</span> Locked</span>
               </div>
-              <button onClick={() => setShowMap(false)} className="mt-4 w-full py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-medium min-h-[48px] touch-manipulation">Đóng</button>
+              <button onClick={() => setShowMap(false)} className="mt-4 w-full py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-medium min-h-[48px] touch-manipulation">Close</button>
             </div>
           </div>
         )}
@@ -559,14 +559,14 @@ export default function BalanceQuest() {
         {showStats && (
           <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4 pt-safe pb-safe overflow-y-auto" onClick={() => setShowStats(false)}>
             <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 my-auto border border-slate-200" onClick={(e) => e.stopPropagation()}>
-              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2 mb-4"><BarChart3 size={20} /> Thống kê</h2>
+              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2 mb-4"><BarChart3 size={20} /> Stats</h2>
               <div className="space-y-2 text-sm text-slate-600 mb-4">
-                <p>Màn hoàn thành: <strong>{totalLevelsWon}</strong></p>
-                <p>Độ chính xác: <strong>{totalAttempts > 0 ? Math.round((totalCorrect / totalAttempts) * 100) : 0}%</strong></p>
+                <p>Levels completed: <strong>{totalLevelsWon}</strong></p>
+                <p>Accuracy: <strong>{totalAttempts > 0 ? Math.round((totalCorrect / totalAttempts) * 100) : 0}%</strong></p>
                 <p>XP: <strong>{xp}</strong></p>
-                <p>Điểm cao: <strong>{loadProgress().highScore}</strong></p>
+                <p>High score: <strong>{loadProgress().highScore}</strong></p>
               </div>
-              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2 mb-2"><Award size={20} /> Thành tựu</h2>
+              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2 mb-2"><Award size={20} /> Achievements</h2>
               <div className="space-y-1 max-h-40 overflow-y-auto">
                 {ACHIEVEMENTS.map((a) => (
                   <div key={a.id} className={clsx("flex items-center gap-2 py-1 text-sm", achievements.includes(a.id) ? "text-slate-800" : "text-slate-400")}>
@@ -576,7 +576,7 @@ export default function BalanceQuest() {
                   </div>
                 ))}
               </div>
-              <button onClick={() => setShowStats(false)} className="mt-4 w-full py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-medium min-h-[48px] touch-manipulation">Đóng</button>
+              <button onClick={() => setShowStats(false)} className="mt-4 w-full py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-medium min-h-[48px] touch-manipulation">Close</button>
             </div>
           </div>
         )}
@@ -701,7 +701,7 @@ export default function BalanceQuest() {
           style={{ width: isDesktop ? deckWidth : undefined }}
         >
           <div className="flex justify-between items-center px-3 py-2 md:py-1 border-b border-slate-100 gap-2">
-            <span className="text-xs font-medium text-slate-500">Bài ({deck.length})</span>
+            <span className="text-xs font-medium text-slate-500">Deck ({deck.length})</span>
             <div className="flex items-center gap-1">
               {deck.length > 0 && !hintUsed && (
                 <button
@@ -898,14 +898,14 @@ export default function BalanceQuest() {
       {showStats && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4 pt-safe pb-safe overflow-y-auto" onClick={() => setShowStats(false)}>
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 my-auto border border-slate-200" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2 mb-4"><BarChart3 size={20} /> Thống kê</h2>
+            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2 mb-4"><BarChart3 size={20} /> Stats</h2>
             <div className="space-y-2 text-sm text-slate-600 mb-4">
-              <p>Màn hoàn thành: <strong>{totalLevelsWon}</strong></p>
-              <p>Độ chính xác: <strong>{totalAttempts > 0 ? Math.round((totalCorrect / totalAttempts) * 100) : 0}%</strong></p>
+              <p>Levels completed: <strong>{totalLevelsWon}</strong></p>
+              <p>Accuracy: <strong>{totalAttempts > 0 ? Math.round((totalCorrect / totalAttempts) * 100) : 0}%</strong></p>
               <p>XP: <strong>{xp}</strong></p>
-              <p>Điểm cao: <strong>{loadProgress().highScore}</strong></p>
+              <p>High score: <strong>{loadProgress().highScore}</strong></p>
             </div>
-            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2 mb-2"><Award size={20} /> Thành tựu</h2>
+            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2 mb-2"><Award size={20} /> Achievements</h2>
             <div className="space-y-1 max-h-40 overflow-y-auto">
               {ACHIEVEMENTS.map((a) => (
                 <div key={a.id} className={clsx("flex items-center gap-2 py-1 text-sm", achievements.includes(a.id) ? "text-slate-800" : "text-slate-400")}>
@@ -915,7 +915,7 @@ export default function BalanceQuest() {
                 </div>
               ))}
             </div>
-            <button onClick={() => setShowStats(false)} className="mt-4 w-full py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-medium min-h-[48px] touch-manipulation">Đóng</button>
+            <button onClick={() => setShowStats(false)} className="mt-4 w-full py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-medium min-h-[48px] touch-manipulation">Close</button>
           </div>
         </div>
       )}

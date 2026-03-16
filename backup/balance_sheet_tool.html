@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -309,21 +309,21 @@
             
             <!-- ASSETS -->
             <div class="column assets" onclick="handleColumnClick('assets')">
-                <div class="col-header col-assets-text">Assets (Tài sản)</div>
+                <div class="col-header col-assets-text">Assets</div>
                 <div class="drop-zone" id="zone-assets"></div>
                 <div class="col-footer col-assets-text" id="total-assets">0</div>
             </div>
 
             <!-- LIABILITIES -->
             <div class="column liab" onclick="handleColumnClick('liab')">
-                <div class="col-header col-liab-text">Liabilities (Nợ)</div>
+                <div class="col-header col-liab-text">Liabilities</div>
                 <div class="drop-zone" id="zone-liab"></div>
                 <div class="col-footer col-liab-text" id="total-liab">0</div>
             </div>
 
             <!-- EQUITY -->
             <div class="column equity" onclick="handleColumnClick('equity')">
-                <div class="col-header col-equity-text">Equity (Vốn chủ)</div>
+                <div class="col-header col-equity-text">Equity</div>
                 <div class="drop-zone" id="zone-equity"></div>
                 <div class="col-footer col-equity-text" id="total-equity">0</div>
             </div>
@@ -343,28 +343,28 @@
     // --- LARGE DATASET FOR HARD MODE ---
     const DB = {
         assets: [
-            { en: "Cash", vi: "Tiền mặt" }, { en: "Accounts Receivable", vi: "Phải thu KH" },
-            { en: "Inventory", vi: "Hàng tồn kho" }, { en: "Supplies", vi: "Vật tư" },
-            { en: "Prepaid Insurance", vi: "Bảo hiểm TT" }, { en: "Land", vi: "Đất đai" },
-            { en: "Buildings", vi: "Nhà xưởng" }, { en: "Equipment", vi: "Thiết bị" },
-            { en: "Vehicles", vi: "Xe cộ" }, { en: "Patents", vi: "Bằng sáng chế" },
-            { en: "Trademarks", vi: "Nhãn hiệu" }, { en: "Copyrights", vi: "Bản quyền" },
-            { en: "Goodwill", vi: "Lợi thế TM" }, { en: "Short-term Investments", vi: "Đầu tư NH" },
-            { en: "Notes Receivable", vi: "Thương phiếu phải thu" }, { en: "Tools", vi: "Công cụ dụng cụ" },
-            { en: "Furniture", vi: "Nội thất" }, { en: "Computer Software", vi: "Phần mềm" }
+            { en: "Cash" }, { en: "Accounts Receivable" },
+            { en: "Inventory" }, { en: "Supplies" },
+            { en: "Prepaid Insurance" }, { en: "Land" },
+            { en: "Buildings" }, { en: "Equipment" },
+            { en: "Vehicles" }, { en: "Patents" },
+            { en: "Trademarks" }, { en: "Copyrights" },
+            { en: "Goodwill" }, { en: "Short-term Investments" },
+            { en: "Notes Receivable" }, { en: "Tools" },
+            { en: "Furniture" }, { en: "Computer Software" }
         ],
         liabilities: [
-            { en: "Accounts Payable", vi: "Phải trả NB" }, { en: "Notes Payable", vi: "Thương phiếu phải trả" },
-            { en: "Salaries Payable", vi: "Lương phải trả" }, { en: "Interest Payable", vi: "Lãi vay phải trả" },
-            { en: "Taxes Payable", vi: "Thuế phải nộp" }, { en: "Unearned Revenue", vi: "Doanh thu chưa TH" },
-            { en: "Bonds Payable", vi: "Trái phiếu" }, { en: "Mortgage Payable", vi: "Nợ thế chấp" },
-            { en: "Warranty Liability", vi: "Dự phòng bảo hành" }, { en: "Bank Overdraft", vi: "Thấu chi ngân hàng" },
-            { en: "Utilities Payable", vi: "Điện nước phải trả" }
+            { en: "Accounts Payable" }, { en: "Notes Payable" },
+            { en: "Salaries Payable" }, { en: "Interest Payable" },
+            { en: "Taxes Payable" }, { en: "Unearned Revenue" },
+            { en: "Bonds Payable" }, { en: "Mortgage Payable" },
+            { en: "Warranty Liability" }, { en: "Bank Overdraft" },
+            { en: "Utilities Payable" }
         ],
         equity: [
-            { en: "Common Stock", vi: "Cổ phiếu phổ thông" }, { en: "Retained Earnings", vi: "LN giữ lại" },
-            { en: "Paid-in Capital", vi: "Vốn góp bổ sung" }, { en: "Treasury Stock", vi: "Cổ phiếu quỹ" },
-            { en: "Preferred Stock", vi: "Cổ phiếu ưu đãi" }, { en: "Owner's Capital", vi: "Vốn chủ sở hữu" }
+            { en: "Common Stock" }, { en: "Retained Earnings" },
+            { en: "Paid-in Capital" }, { en: "Treasury Stock" },
+            { en: "Preferred Stock" }, { en: "Owner's Capital" }
         ]
     };
 
@@ -450,7 +450,6 @@
         div.innerHTML = `
             <div>
                 <div class="card-name">${item.en}</div>
-                <span class="card-vi">${item.vi}</span>
             </div>
             <div class="card-amount">${item.val.toLocaleString()}</div>
         `;
