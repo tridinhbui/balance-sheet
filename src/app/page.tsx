@@ -26,6 +26,7 @@ import confetti from 'canvas-confetti';
 import { Heart, ShieldAlert, Swords, RefreshCw, Trophy, GripHorizontal, Lightbulb, BookOpen, Volume2, VolumeX, BarChart3, Award, Home, Map, Users } from 'lucide-react';
 import clsx from 'clsx';
 import { AuthButton } from '@/components/AuthButton';
+import { useAppAuth } from '@/components/AuthProvider';
 import { getAuthInstance, saveProgressToCloud, loadProgressFromCloud, isFirebaseConfigured, addToLeaderboard, getLeaderboard, type LeaderboardEntry } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
@@ -157,7 +158,14 @@ const MainColumnFixed = ({
 const STREAK_BONUS = 20; // +20 XP for 3+ correct in a row
 
 export default function BalanceQuest() {
+  const { user: authUser } = useAppAuth();
+  type SignedInLeaderboardUser = {
+    id: string;
+    displayName: string;
+    avatarUrl: string;
+  };
   const [level, setLevel] = useState(1);
+  const [highestLevel, setHighestLevel] = useState(1);
   const [xp, setXp] = useState(0);
   const [difficulty, setDifficulty] = useState<Difficulty>('medium');
   const [playerHp, setPlayerHp] = useState(3);
@@ -199,6 +207,7 @@ export default function BalanceQuest() {
   const [showMap, setShowMap] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [selfLeaderboardRank, setSelfLeaderboardRank] = useState<{ rank: number; bestLevel: number } | null>(null);
   const [newAchievementIds, setNewAchievementIds] = useState<string[]>([]);
   const [deckWidth, setDeckWidth] = useState(192);
   const [isResizing, setIsResizing] = useState(false);
@@ -211,6 +220,7 @@ export default function BalanceQuest() {
   useEffect(() => {
     const p = loadProgress();
     setLevel(p.level);
+    setHighestLevel(p.highestLevel ?? p.level ?? 1);
     setXp(p.xp);
     setDifficulty(p.difficulty);
     setTotalLevelsWon(p.totalLevelsWon);
@@ -227,6 +237,7 @@ export default function BalanceQuest() {
         const cloud = await loadProgressFromCloud(user.uid);
         if (cloud && (cloud.level ?? 0) > 0) {
           setLevel(cloud.level ?? 1);
+          setHighestLevel(cloud.highestLevel ?? cloud.level ?? 1);
           setXp(cloud.xp ?? 0);
           setTotalLevelsWon(cloud.totalLevelsWon ?? 0);
           setTotalCorrect(cloud.totalCorrect ?? 0);
@@ -266,13 +277,13 @@ export default function BalanceQuest() {
 
   useEffect(() => {
     if (!gameStarted) return;
-    const p = { level, xp, totalLevelsWon, totalCorrect, totalAttempts, achievements, difficulty };
+    const p = { level, highestLevel, xp, totalLevelsWon, totalCorrect, totalAttempts, achievements, difficulty };
     saveProgress(p);
     const auth = getAuthInstance();
     if (auth?.currentUser && isFirebaseConfigured()) {
       saveProgressToCloud(auth.currentUser.uid, p).catch(() => {});
     }
-  }, [level, xp, totalLevelsWon, totalCorrect, totalAttempts, achievements, difficulty, gameStarted]);
+  }, [level, highestLevel, xp, totalLevelsWon, totalCorrect, totalAttempts, achievements, difficulty, gameStarted]);
 
   useEffect(() => { if (gameStarted) startLevel(); }, [level, gameStarted]);
 
@@ -280,12 +291,60 @@ export default function BalanceQuest() {
     if (practiceMode || gameState !== 'playing' || timeLeft <= 0) return;
     const t = setInterval(() => {
       setTimeLeft((p) => {
-        if (p <= 1) { clearInterval(t); setGameState('lost'); setFeedback({ msg: "TIME'S UP!", type: 'error' }); if (!muted) playDefeat(); return 0; }
+        if (p <= 1) {
+          clearInterval(t);
+          setGameState('lost');
+          setLevel(1);
+          setFeedback({ msg: "TIME'S UP! Back to Level 1.", type: 'error' });
+          if (!muted) playDefeat();
+          return 0;
+        }
         return p - 1;
       });
     }, 1000);
     return () => clearInterval(t);
-  }, [gameState, timeLeft, practiceMode]);
+  }, [gameState, timeLeft, practiceMode, muted]);
+
+  const getSignedInLeaderboardUser = useCallback((): SignedInLeaderboardUser | null => {
+    if (authUser) {
+      return {
+        id: authUser.id,
+        displayName: authUser.displayName || 'Anonymous',
+        avatarUrl: authUser.avatarUrl || '',
+      };
+    }
+
+    const firebaseUser = getAuthInstance()?.currentUser;
+    if (firebaseUser) {
+      return {
+        id: firebaseUser.uid,
+        displayName: firebaseUser.displayName || 'Anonymous',
+        avatarUrl: firebaseUser.photoURL || '',
+      };
+    }
+
+    return null;
+  }, [authUser]);
+
+  const refreshLeaderboard = useCallback(async (targetUserId?: string, achievedLevel?: number) => {
+    const board = await getLeaderboard();
+    setLeaderboard(board);
+
+    if (!targetUserId) {
+      setSelfLeaderboardRank(null);
+      return;
+    }
+    const rank = board.findIndex((entry) => entry.userId === targetUserId);
+    if (rank >= 0) {
+      setSelfLeaderboardRank({
+        rank: rank + 1,
+        bestLevel: achievedLevel ?? board[rank].bestLevel,
+      });
+      return;
+    }
+
+    setSelfLeaderboardRank(null);
+  }, []);
 
   const startLevel = () => {
     const items: AccountItem[] = [];
@@ -382,16 +441,46 @@ export default function BalanceQuest() {
         const n = p - 1;
         if (n <= 0) {
           const newTotalWon = totalLevelsWon + 1;
+          const previousHighestLevel = highestLevel;
+          const newHighestLevel = Math.max(previousHighestLevel, level);
           setGameState('won');
           setTotalLevelsWon((w) => w + 1);
+          setHighestLevel(newHighestLevel);
           confetti({ particleCount: 100, spread: 60, origin: { y: 0.6 } });
           setFeedback({ msg: "VICTORY!", type: 'success' });
           if (!muted) playVictory();
           const newXp = xp + 50 + (correctStreak >= 3 ? STREAK_BONUS : 0);
+          const bestLevelReached = newHighestLevel;
           saveProgress({ highScore: Math.max(loadProgress().highScore, newXp) });
-          if (newTotalWon >= 5) {
-            const user = getAuthInstance()?.currentUser;
-            if (user) addToLeaderboard(user.uid, user.displayName || 'Anonymous', newTotalWon).catch(() => {});
+          console.log("LEVEL COMPLETED:", level);
+          console.log("USER HIGHEST:", previousHighestLevel);
+          // Sync only when a logged-in user reaches a strictly higher best level at/above level 5.
+          const shouldSyncLeaderboard = bestLevelReached >= 5;
+          if (shouldSyncLeaderboard) {
+            console.log("UPDATING LEADERBOARD");
+            const leaderboardUser = getSignedInLeaderboardUser();
+            console.log("--- DEBUG INFO ---");
+            console.log("User Information:", leaderboardUser);
+            console.log("User's Target Highest Level:", bestLevelReached);
+            console.log("------------------");
+
+            if (leaderboardUser) {
+              void addToLeaderboard(
+                leaderboardUser.id,
+                leaderboardUser.displayName,
+                leaderboardUser.avatarUrl,
+                newTotalWon,
+                bestLevelReached,
+              )
+                .then(async (updated) => {
+                  if (!updated) return;
+                  await refreshLeaderboard(leaderboardUser.id, bestLevelReached);
+                  setShowLeaderboard(true);
+                })
+                .catch((error) => {
+                  console.error('Failed to sync leaderboard:', error);
+                });
+            }
           }
           const newAchievs = checkNewAchievements(
             { totalLevelsWon: totalLevelsWon + 1, level, totalCorrect: totalCorrect + 1, totalAttempts: totalAttempts + 1, xp: newXp, achievements },
@@ -421,7 +510,12 @@ export default function BalanceQuest() {
       if (!practiceMode) {
         setPlayerHp((p) => {
           const n = p - 1;
-          if (n <= 0) { setGameState('lost'); setFeedback({ msg: "DEFEAT!", type: 'error' }); if (!muted) playDefeat(); }
+          if (n <= 0) {
+            setGameState('lost');
+            setLevel(1);
+            setFeedback({ msg: "DEFEAT! Back to Level 1.", type: 'error' });
+            if (!muted) playDefeat();
+          }
           return n;
         });
       }
@@ -433,7 +527,7 @@ export default function BalanceQuest() {
       setFeedback({ msg: "Wrong!", type: 'error' });
       if (!muted) playWrong();
     }
-  }, [gameState, deck, correctStreak, muted, xp, totalLevelsWon, totalCorrect, totalAttempts, level, levelCorrect, levelAttempts, achievements, practiceMode]);
+  }, [gameState, deck, correctStreak, muted, xp, totalLevelsWon, totalCorrect, totalAttempts, level, highestLevel, levelCorrect, levelAttempts, achievements, practiceMode, getSignedInLeaderboardUser, refreshLeaderboard]);
 
   const sum = (arr: AccountItem[]) => arr.reduce((a, c) => a + c.val, 0);
   const tA = sum(currentAssets) + sum(fixedAssets);
@@ -454,7 +548,7 @@ export default function BalanceQuest() {
       <div className="min-h-screen flex flex-col bg-white overflow-y-auto pt-safe pb-safe relative">
         {/* Login + Leaderboard in top-right corner */}
         <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-10 flex items-center gap-2">
-          <button onClick={() => { setShowLeaderboard(true); getLeaderboard().then(setLeaderboard); }} className="text-slate-500 hover:text-slate-800 text-sm font-medium flex items-center gap-1.5 py-2 px-3 rounded-lg hover:bg-slate-100 transition-colors">
+          <button onClick={() => { const current = getSignedInLeaderboardUser(); setShowLeaderboard(true); void refreshLeaderboard(current?.id); }} className="text-slate-500 hover:text-slate-800 text-sm font-medium flex items-center gap-1.5 py-2 px-3 rounded-lg hover:bg-slate-100 transition-colors">
             <Users size={18} /> Leaderboard
           </button>
           <AuthButton />
@@ -495,13 +589,13 @@ export default function BalanceQuest() {
             {/* Main CTA */}
             <div className="flex flex-col sm:flex-row gap-3 justify-center mb-6">
               <button
-                onClick={() => { setPracticeMode(true); setGameStarted(true); }}
+                onClick={() => { setPracticeMode(true); setLevel(1); setGameStarted(true); }}
                 className="px-8 py-3.5 rounded-xl border-2 border-slate-200 text-slate-700 font-semibold hover:border-slate-300 hover:bg-slate-50 transition-all min-h-[52px] touch-manipulation"
               >
                 Practice
               </button>
               <button
-                onClick={() => { setPracticeMode(false); setGameStarted(true); }}
+                onClick={() => { setPracticeMode(false); setLevel(1); setGameStarted(true); }}
                 className="px-8 py-3.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl transition-all min-h-[52px] touch-manipulation"
               >
                 Start Game
@@ -534,18 +628,32 @@ export default function BalanceQuest() {
               <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2 mb-2">
                 <Users size={24} className="text-amber-500" /> Leaderboard
               </h2>
-              <p className="text-slate-500 text-sm mb-4">Players who completed 5+ levels (sign in to add your name)</p>
+              <p className="text-slate-500 text-sm mb-4">Players who reached level 5+ (rank, avatar, name, highest level)</p>
               <div className="max-h-64 overflow-y-auto space-y-2">
                 {leaderboard.length === 0 && <p className="text-slate-400 text-sm py-4 text-center">No entries yet. Be the first!</p>}
                 {leaderboard.map((entry, i) => (
-                  <div key={entry.userId} className="flex items-center justify-between py-2 px-3 rounded-lg bg-slate-50">
-                    <span className="font-medium text-slate-800">
-                      {i + 1}. {entry.displayName}
-                    </span>
-                    <span className="text-sm font-bold text-amber-600">{entry.totalLevelsWon} levels</span>
+                  <div key={entry.userId} className="flex items-center justify-between gap-3 py-2 px-3 rounded-lg bg-slate-50">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-xs font-bold text-slate-500 w-6">#{i + 1}</span>
+                      {entry.avatarUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={entry.avatarUrl} alt={entry.displayName} className="w-8 h-8 rounded-full object-cover border border-slate-200" />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-700 text-xs font-bold flex items-center justify-center">
+                          {(entry.displayName || 'A').slice(0, 1).toUpperCase()}
+                        </div>
+                      )}
+                      <span className="font-medium text-slate-800 truncate">{entry.displayName}</span>
+                    </div>
+                    <span className="text-sm font-bold text-amber-600 shrink-0">Lv {entry.bestLevel}</span>
                   </div>
                 ))}
               </div>
+              {selfLeaderboardRank && (
+                <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                  You reached level {selfLeaderboardRank.bestLevel} and are ranked #{selfLeaderboardRank.rank}.
+                </div>
+              )}
               <button onClick={() => setShowLeaderboard(false)} className="mt-4 w-full py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-medium min-h-[48px] touch-manipulation">Close</button>
             </div>
           </div>
@@ -598,6 +706,7 @@ export default function BalanceQuest() {
               <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2 mb-4"><BarChart3 size={20} /> Stats</h2>
               <div className="space-y-2 text-sm text-slate-600 mb-4">
                 <p>Levels completed: <strong>{totalLevelsWon}</strong></p>
+                <p>Highest level: <strong>{highestLevel}</strong></p>
                 <p>Accuracy: <strong>{totalAttempts > 0 ? Math.round((totalCorrect / totalAttempts) * 100) : 0}%</strong></p>
                 <p>XP: <strong>{xp}</strong></p>
                 <p>High score: <strong>{loadProgress().highScore}</strong></p>
@@ -707,7 +816,7 @@ export default function BalanceQuest() {
             <button onClick={() => setShowStats(true)} className="p-2.5 md:p-1 rounded-lg md:rounded hover:bg-slate-100 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center" title="Stats & Achievements">
               <BarChart3 size={20} className="text-slate-600" />
             </button>
-            <button onClick={() => { setShowLeaderboard(true); getLeaderboard().then(setLeaderboard); }} className="p-2.5 md:p-1 rounded-lg md:rounded hover:bg-slate-100 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center" title="Leaderboard">
+            <button onClick={() => { const current = getSignedInLeaderboardUser(); setShowLeaderboard(true); void refreshLeaderboard(current?.id); }} className="p-2.5 md:p-1 rounded-lg md:rounded hover:bg-slate-100 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center" title="Leaderboard">
               <Users size={20} className="text-slate-600" />
             </button>
             <button onClick={() => { setGameStarted(false); setShowStats(false); }} className="p-2.5 md:p-1 rounded-lg md:rounded hover:bg-slate-100 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center" title="Back to menu">
@@ -895,7 +1004,7 @@ export default function BalanceQuest() {
               <button onClick={() => setLevel((l) => l + 1)} className="bg-green-600 hover:bg-green-700 text-white text-sm font-bold px-5 py-2.5 rounded-lg min-h-[44px] touch-manipulation">Next</button>
             </>
           )}
-          {gameState === 'lost' && <button onClick={() => startLevel()} className="bg-red-600 hover:bg-red-700 text-white text-sm font-bold px-5 py-2.5 rounded-lg min-h-[44px] touch-manipulation">Retry</button>}
+          {gameState === 'lost' && <button onClick={() => { setLevel(1); startLevel(); }} className="bg-red-600 hover:bg-red-700 text-white text-sm font-bold px-5 py-2.5 rounded-lg min-h-[44px] touch-manipulation">Retry</button>}
         </div>
       </footer>
 
@@ -946,16 +1055,32 @@ export default function BalanceQuest() {
             <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2 mb-2">
               <Users size={24} className="text-amber-500" /> Leaderboard
             </h2>
-            <p className="text-slate-500 text-sm mb-4">Players who completed 5+ levels</p>
+            <p className="text-slate-500 text-sm mb-4">Players who reached level 5+</p>
             <div className="max-h-64 overflow-y-auto space-y-2">
               {leaderboard.length === 0 && <p className="text-slate-400 text-sm py-4 text-center">No entries yet. Be the first!</p>}
               {leaderboard.map((entry, i) => (
-                <div key={entry.userId} className="flex items-center justify-between py-2 px-3 rounded-lg bg-slate-50">
-                  <span className="font-medium text-slate-800">{i + 1}. {entry.displayName}</span>
-                  <span className="text-sm font-bold text-amber-600">{entry.totalLevelsWon} levels</span>
+                <div key={entry.userId} className="flex items-center justify-between gap-3 py-2 px-3 rounded-lg bg-slate-50">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-xs font-bold text-slate-500 w-6">#{i + 1}</span>
+                    {entry.avatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={entry.avatarUrl} alt={entry.displayName} className="w-8 h-8 rounded-full object-cover border border-slate-200" />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-700 text-xs font-bold flex items-center justify-center">
+                        {(entry.displayName || 'A').slice(0, 1).toUpperCase()}
+                      </div>
+                    )}
+                    <span className="font-medium text-slate-800 truncate">{entry.displayName}</span>
+                  </div>
+                  <span className="text-sm font-bold text-amber-600 shrink-0">Lv {entry.bestLevel}</span>
                 </div>
               ))}
             </div>
+            {selfLeaderboardRank && (
+              <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                You reached level {selfLeaderboardRank.bestLevel} and are ranked #{selfLeaderboardRank.rank}.
+              </div>
+            )}
             <button onClick={() => setShowLeaderboard(false)} className="mt-4 w-full py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-medium min-h-[48px] touch-manipulation">Close</button>
           </div>
         </div>
@@ -967,6 +1092,7 @@ export default function BalanceQuest() {
             <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2 mb-4"><BarChart3 size={20} /> Stats</h2>
             <div className="space-y-2 text-sm text-slate-600 mb-4">
               <p>Levels completed: <strong>{totalLevelsWon}</strong></p>
+              <p>Highest level: <strong>{highestLevel}</strong></p>
               <p>Accuracy: <strong>{totalAttempts > 0 ? Math.round((totalCorrect / totalAttempts) * 100) : 0}%</strong></p>
               <p>XP: <strong>{xp}</strong></p>
               <p>High score: <strong>{loadProgress().highScore}</strong></p>

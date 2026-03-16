@@ -1,65 +1,64 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { getAuthInstance, signInWithGoogle, signOut, isFirebaseConfigured } from '@/lib/firebase';
-import { onAuthStateChanged, type User } from 'firebase/auth';
-import { LogIn, LogOut, Loader2 } from 'lucide-react';
+import Link from 'next/link';
+import React, { useState } from 'react';
+import { LogIn, LogOut, Loader2, UserPlus } from 'lucide-react';
+import { useAppAuth } from '@/components/AuthProvider';
 
 export function AuthButton() {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [signingIn, setSigningIn] = useState(false);
+  const { user, loading, signOut } = useAppAuth();
+  const [signingOut, setSigningOut] = useState(false);
 
-  useEffect(() => {
-    const auth = getAuthInstance();
-    if (!auth) {
-      setLoading(false);
-      return;
-    }
-    const unsub = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      setLoading(false);
-    });
-    return () => unsub();
-  }, []);
-
-  const handleSignIn = async () => {
-    setSigningIn(true);
-    try {
-      await signInWithGoogle();
-    } catch (e) {
-      console.error('Sign in failed:', e);
-    }
-    setSigningIn(false);
-  };
-
-  if (!isFirebaseConfigured()) return null;
-  if (loading) return <div className="w-8 h-8 animate-pulse bg-slate-200 rounded" />;
+  if (loading) return <div className="h-10 w-32 animate-pulse rounded-xl bg-slate-200" />;
 
   if (user) {
     return (
       <div className="flex items-center gap-2">
-        <img src={user.photoURL || ''} alt="" className="w-7 h-7 rounded-full" />
-        <span className="text-xs text-slate-600 max-w-[80px] truncate hidden sm:inline">{user.displayName}</span>
+        <Link href="/profile" className="flex items-center gap-2 hover:bg-slate-100 p-1.5 rounded-lg transition-colors cursor-pointer" title="Go to Profile">
+          {user.avatarUrl ? (
+            <img src={user.avatarUrl} alt="" className="h-7 w-7 rounded-full object-cover" />
+          ) : (
+            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">
+              {user.displayName.slice(0, 1).toUpperCase()}
+            </div>
+          )}
+          <span className="hidden max-w-[120px] truncate text-xs text-slate-600 font-medium sm:inline">{user.displayName}</span>
+        </Link>
         <button
-          onClick={() => signOut()}
-          className="p-2.5 md:p-1.5 rounded-lg md:rounded hover:bg-slate-100 text-slate-500 min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 flex items-center justify-center touch-manipulation"
+          onClick={async () => {
+            setSigningOut(true);
+            try {
+              await signOut();
+            } finally {
+              setSigningOut(false);
+            }
+          }}
+          className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-2.5 text-slate-500 hover:bg-slate-100 md:min-h-0 md:min-w-0 md:rounded md:p-1.5"
           title="Sign out"
+          disabled={signingOut}
         >
-          <LogOut size={18} />
+          {signingOut ? <Loader2 size={18} className="animate-spin" /> : <LogOut size={18} />}
         </button>
       </div>
     );
   }
 
   return (
-    <button
-      onClick={handleSignIn}
-      disabled={signingIn}
-      className="flex items-center gap-2 px-4 py-2.5 md:py-1.5 rounded-lg bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-sm font-medium text-slate-700 disabled:opacity-50 min-h-[44px] touch-manipulation"
-    >
-      {signingIn ? <Loader2 size={16} className="animate-spin" /> : <LogIn size={16} />}
-      <span className="hidden sm:inline">Sign in with Google</span>
-    </button>
+    <div className="flex items-center gap-2">
+      <Link
+        href="/auth?mode=signin"
+        className="flex min-h-[44px] items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50"
+      >
+        <LogIn size={16} />
+        <span>Log in</span>
+      </Link>
+      <Link
+        href="/auth?mode=signup"
+        className="flex min-h-[44px] items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-800"
+      >
+        <UserPlus size={16} />
+        <span>Sign up</span>
+      </Link>
+    </div>
   );
 }
