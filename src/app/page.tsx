@@ -5,9 +5,9 @@ import { motion } from 'framer-motion';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const MotionDiv = motion.div as any;
-import { ACCOUNTS, AccountItem, AccountCategory, CATEGORY_EXPLANATIONS } from '@/lib/gameData';
+import { ACCOUNTS, AccountItem, AccountCategory, CATEGORY_EXPLANATIONS, LEVEL_TIPS, DIFFICULTY_CONFIG, type Difficulty } from '@/lib/gameData';
 import confetti from 'canvas-confetti';
-import { Heart, ShieldAlert, Swords, RefreshCw, Trophy, GripHorizontal, Clock } from 'lucide-react';
+import { Heart, ShieldAlert, Swords, RefreshCw, Trophy, GripHorizontal, Lightbulb, BookOpen } from 'lucide-react';
 import clsx from 'clsx';
 
 // --- COMPONENTS ---
@@ -20,7 +20,6 @@ const Card = ({ item, onDragStart }: { item: AccountItem; onDragStart: (e: React
   >
     <div className="min-w-0 flex-1">
       <div className="font-semibold text-slate-800 text-xs truncate">{item.en}</div>
-      <div className="text-[10px] text-slate-500 truncate">{item.vi}</div>
     </div>
     <div className="flex items-center gap-1 shrink-0">
       <span className="bg-slate-100 text-slate-700 font-mono text-[10px] px-1.5 py-0.5 rounded">${item.val.toLocaleString()}</span>
@@ -37,6 +36,7 @@ const DropSection = ({
   colorClass,
   bgClass,
   onDrop,
+  highlightHint,
 }: {
   title: string;
   type: AccountCategory;
@@ -45,6 +45,7 @@ const DropSection = ({
   colorClass: string;
   bgClass: string;
   onDrop: (cardId: string, targetType: AccountCategory) => void;
+  highlightHint?: boolean;
 }) => {
   const [over, setOver] = useState(false);
   return (
@@ -53,13 +54,14 @@ const DropSection = ({
       onDragLeave={() => setOver(false)}
       onDrop={(e) => { e.preventDefault(); setOver(false); const id = e.dataTransfer.getData('text/plain'); if (id) onDrop(id, type); }}
       className={clsx(
-        "flex-1 min-h-0 flex flex-col rounded border overflow-hidden transition-all",
+        "flex-1 min-h-[60px] md:min-h-0 flex flex-col rounded border overflow-hidden transition-all",
         bgClass,
-        over && "ring-2 ring-amber-400"
+        over && "ring-2 ring-amber-400",
+        highlightHint && "ring-2 ring-amber-400 ring-offset-2 animate-pulse"
       )}
     >
-      <div className={clsx("px-2 py-1 text-center font-bold text-[10px] uppercase shrink-0", colorClass)}>{title}</div>
-      <div className="flex-1 min-h-0 overflow-hidden p-1 flex flex-wrap content-start gap-1">
+      <div className={clsx("px-2 py-1.5 md:py-1 text-center font-bold text-[10px] uppercase shrink-0", colorClass)}>{title}</div>
+      <div className="flex-1 min-h-0 overflow-hidden p-1.5 md:p-1 flex flex-wrap content-start gap-1.5 md:gap-1">
         {items.map((item) => (
           <div key={item.id} className="p-1 bg-white rounded border text-[10px] flex justify-between items-center gap-1 min-w-0">
             <span className="truncate">{item.en}</span>
@@ -79,18 +81,20 @@ const MainColumnFixed = ({
   headerColorClass,
   sections,
   onDrop,
+  hintTargetType,
 }: {
   title: string;
   borderColorClass: string;
   headerColorClass: string;
   sections: { title: string; type: AccountCategory; items: AccountItem[]; total: number; colorClass: string; bgClass: string }[];
   onDrop: (cardId: string, targetType: AccountCategory) => void;
+  hintTargetType?: AccountCategory | null;
 }) => (
-  <div className={clsx("flex flex-col rounded-lg border-t-4 bg-white shadow-sm overflow-hidden min-w-0 flex-1", borderColorClass)}>
-    <div className={clsx("px-2 py-1.5 text-center font-bold text-xs uppercase shrink-0", headerColorClass)}>{title}</div>
-    <div className="flex-1 min-h-0 flex flex-col gap-1 p-1.5">
+  <div className={clsx("flex flex-col rounded-lg border-t-4 bg-white shadow-sm overflow-hidden min-w-0 flex-1 min-h-[180px] md:min-h-0", borderColorClass)}>
+    <div className={clsx("px-2 py-2 md:py-1.5 text-center font-bold text-xs uppercase shrink-0", headerColorClass)}>{title}</div>
+    <div className="flex-1 min-h-0 flex flex-col gap-2 md:gap-1 p-2 md:p-1.5">
       {sections.map((s) => (
-        <DropSection key={s.type} title={s.title} type={s.type} items={s.items} total={s.total} colorClass={s.colorClass} bgClass={s.bgClass} onDrop={onDrop} />
+        <DropSection key={s.type} title={s.title} type={s.type} items={s.items} total={s.total} colorClass={s.colorClass} bgClass={s.bgClass} onDrop={onDrop} highlightHint={hintTargetType === s.type} />
       ))}
     </div>
   </div>
@@ -98,11 +102,13 @@ const MainColumnFixed = ({
 
 // --- MAIN ---
 
+const STREAK_BONUS = 20; // +20 XP for 3+ correct in a row
+
 export default function BalanceQuest() {
   const [level, setLevel] = useState(1);
   const [xp, setXp] = useState(0);
+  const [difficulty, setDifficulty] = useState<Difficulty>('medium');
   const [playerHp, setPlayerHp] = useState(3);
-  const [maxPlayerHp] = useState(3);
   const [bossHp, setBossHp] = useState(100);
   const [maxBossHp, setMaxBossHp] = useState(100);
 
@@ -118,8 +124,18 @@ export default function BalanceQuest() {
   const [shake, setShake] = useState(false);
   const [bossShake, setBossShake] = useState(false);
   const [gameState, setGameState] = useState<'playing' | 'won' | 'lost'>('playing');
-  const [timeLeft, setTimeLeft] = useState(120); // 2 min per level
+  const [timeLeft, setTimeLeft] = useState(120);
   const [gameStarted, setGameStarted] = useState(false);
+
+  const [hintUsed, setHintUsed] = useState(false);
+  const [hintTargetType, setHintTargetType] = useState<AccountCategory | null>(null);
+  const [wrongDropExplanation, setWrongDropExplanation] = useState<{ card: AccountItem; correctExplain: string } | null>(null);
+  const [levelTip, setLevelTip] = useState<string | null>(null);
+  const [showAnswerReview, setShowAnswerReview] = useState(false);
+  const [correctStreak, setCorrectStreak] = useState(0);
+
+  const config = DIFFICULTY_CONFIG[difficulty];
+  const maxPlayerHp = config.lives;
 
   useEffect(() => { if (gameStarted) startLevel(); }, [level, gameStarted]);
 
@@ -138,11 +154,12 @@ export default function BalanceQuest() {
     const items: AccountItem[] = [];
     let totalA = 0, totalL = 0;
     const shuf = (arr: { en: string; vi: string }[]) => [...arr].sort(() => 0.5 - Math.random());
+    const mult = config.cardMultiplier;
 
-    const nCurA = 2 + Math.floor(level * 0.5);
-    const nFixA = 2 + Math.floor(level * 0.3);
-    const nCurL = 1 + Math.floor(level * 0.3);
-    const nLongL = 1;
+    const nCurA = Math.max(2, Math.floor((2 + Math.floor(level * 0.5)) * mult));
+    const nFixA = Math.max(2, Math.floor((2 + Math.floor(level * 0.3)) * mult));
+    const nCurL = Math.max(1, Math.floor((1 + Math.floor(level * 0.3)) * mult));
+    const nLongL = Math.max(1, Math.floor(1 * mult));
 
     for (let i = 0; i < nCurA; i++) {
       const val = (Math.floor(Math.random() * 30) + 1) * 100;
@@ -183,12 +200,18 @@ export default function BalanceQuest() {
     setLongTermLiab([]);
     setEquityCapital([]);
     setEquityRetained([]);
-    setPlayerHp(maxPlayerHp);
+    setPlayerHp(config.lives);
     setBossHp(items.length);
     setMaxBossHp(items.length);
     setGameState('playing');
-    setTimeLeft(120);
+    setTimeLeft(config.time);
     setFeedback({ msg: `Level ${level}`, type: 'neutral' });
+    setHintUsed(false);
+    setHintTargetType(null);
+    setWrongDropExplanation(null);
+    setShowAnswerReview(false);
+    setCorrectStreak(0);
+    setLevelTip(LEVEL_TIPS[(level - 1) % LEVEL_TIPS.length]);
   };
 
   const handleDragStart = (e: React.DragEvent, id: string) => {
@@ -200,6 +223,7 @@ export default function BalanceQuest() {
     if (gameState !== 'playing') return;
     const card = deck.find((c) => c.id === cardId);
     if (!card) return;
+    setHintTargetType(null); // Clear hint highlight on any drop
 
     if (card.cat === targetType) {
       setDeck((p) => p.filter((c) => c.id !== card.id));
@@ -216,8 +240,13 @@ export default function BalanceQuest() {
       });
       setBossShake(true);
       setTimeout(() => setBossShake(false), 200);
-      setXp((p) => p + 50);
-      setFeedback({ msg: "Correct!", type: 'success' });
+      setWrongDropExplanation(null);
+      const newStreak = correctStreak + 1;
+      setCorrectStreak(newStreak);
+      const baseXp = 50;
+      const streakBonus = newStreak >= 3 ? STREAK_BONUS : 0;
+      setXp((p) => p + baseXp + streakBonus);
+      setFeedback({ msg: streakBonus > 0 ? `Correct! +${STREAK_BONUS} streak bonus!` : "Correct!", type: 'success' });
     } else {
       setPlayerHp((p) => {
         const n = p - 1;
@@ -226,6 +255,9 @@ export default function BalanceQuest() {
       });
       setShake(true);
       setTimeout(() => setShake(false), 300);
+      setCorrectStreak(0);
+      const ex = CATEGORY_EXPLANATIONS[card.cat];
+      setWrongDropExplanation({ card, correctExplain: `${ex.title}: ${ex.explain}` });
       setFeedback({ msg: "Wrong!", type: 'error' });
     }
   };
@@ -258,10 +290,34 @@ export default function BalanceQuest() {
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white mb-2 tracking-tight">
             Balance <span className="text-amber-400">Quest</span>
           </h1>
-          <p className="text-slate-400 text-lg mb-2">Cân đối kế toán • Accounting RPG</p>
-          <p className="text-slate-500 text-xs sm:text-sm max-w-md mx-auto mb-6 sm:mb-8 px-2">
-            Đánh bại quái vật Mất Cân Đối bằng kiến thức kế toán! Kéo thả tài khoản vào đúng cột.
+          <p className="text-slate-400 text-lg mb-2">Balance Sheet • Accounting RPG</p>
+          <p className="text-slate-500 text-xs sm:text-sm max-w-md mx-auto mb-4 px-2">
+            Defeat the Imbalance Monster with accounting knowledge! Drag accounts to the correct columns.
           </p>
+          <div className="mb-4">
+            <p className="text-slate-400 text-xs mb-2">Difficulty:</p>
+            <div className="flex gap-2 justify-center">
+              {(['easy', 'medium', 'hard'] as Difficulty[]).map((d) => (
+                <button
+                  key={d}
+                  onClick={() => setDifficulty(d)}
+                  className={clsx(
+                    "px-4 py-2 rounded-lg text-sm font-bold capitalize transition-all",
+                    difficulty === d
+                      ? "bg-amber-500 text-slate-900 shadow-lg"
+                      : "bg-slate-700 text-slate-400 hover:bg-slate-600"
+                  )}
+                >
+                  {d === 'easy' ? 'Easy' : d === 'medium' ? 'Medium' : 'Hard'}
+                </button>
+              ))}
+            </div>
+            <p className="text-slate-500 text-[10px] mt-1">
+              {difficulty === 'easy' && '90s • 5 lives • fewer cards'}
+              {difficulty === 'medium' && '120s • 3 lives • normal'}
+              {difficulty === 'hard' && '90s • 2 lives • more cards'}
+            </p>
+          </div>
           <MotionDiv
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -274,9 +330,9 @@ export default function BalanceQuest() {
               START GAME
             </button>
           </MotionDiv>
-          <div className="mt-8 flex justify-center gap-4 text-slate-500 text-xs">
-            <span>❤️ 3 lives</span>
-            <span>⏱️ 2 min</span>
+          <div className="mt-6 flex justify-center gap-4 text-slate-500 text-xs">
+            <span>❤️ {DIFFICULTY_CONFIG[difficulty].lives} lives</span>
+            <span>⏱️ {DIFFICULTY_CONFIG[difficulty].time}s</span>
             <span>👾 Boss battle</span>
           </div>
         </MotionDiv>
@@ -286,8 +342,8 @@ export default function BalanceQuest() {
   }
 
   return (
-    <div className={clsx("h-screen flex flex-col overflow-hidden bg-slate-50", shake && "animate-shake")}>
-      <header className="flex-shrink-0 bg-white border-b p-2 sm:p-2">
+    <div className={clsx("min-h-screen md:h-screen flex flex-col overflow-y-auto md:overflow-hidden bg-slate-50", shake && "animate-shake")}>
+      <header className="flex-shrink-0 bg-white border-b p-3 md:p-2">
         <div className="max-w-6xl mx-auto flex flex-wrap justify-between items-center gap-2">
           <div className="flex items-center gap-1 sm:gap-2">
             <div className="w-16 sm:w-24 h-3 bg-slate-200 rounded-full overflow-hidden shrink-0">
@@ -310,19 +366,39 @@ export default function BalanceQuest() {
         </div>
       </header>
 
-      <main className="flex-1 min-h-0 p-2 flex flex-col md:flex-row gap-2 overflow-hidden">
-        <div className="w-full md:w-48 flex-shrink-0 flex flex-col bg-white rounded-lg border shadow-sm overflow-hidden max-h-[28vh] md:max-h-none">
-          <div className="flex justify-between items-center px-2 py-1 border-b">
+      {levelTip && (
+        <div className="flex-shrink-0 bg-amber-50 border-b border-amber-200 px-3 py-2">
+          <p className="text-xs text-amber-800 flex items-center gap-2">
+            <Lightbulb size={14} className="text-amber-500 shrink-0" />
+            <span>{levelTip}</span>
+          </p>
+        </div>
+      )}
+
+      <main className="flex-1 min-h-0 p-4 md:p-2 flex flex-col md:flex-row gap-4 md:gap-2 overflow-visible md:overflow-hidden">
+        <div className="w-full md:w-48 flex-shrink-0 flex flex-col bg-white rounded-lg border shadow-sm overflow-hidden min-h-0 md:flex-1">
+          <div className="flex justify-between items-center px-2 py-1 border-b gap-1">
             <span className="text-[10px] font-bold text-slate-500">Deck ({deck.length})</span>
-            <RefreshCw size={12} className="cursor-pointer hover:rotate-180 transition" onClick={() => startLevel()} />
+            <div className="flex items-center gap-1">
+              {deck.length > 0 && !hintUsed && (
+                <button
+                  onClick={() => { setHintUsed(true); setHintTargetType(deck[0].cat); setTimeout(() => setHintTargetType(null), 4000); }}
+                  className="p-1 rounded hover:bg-amber-100 text-amber-600"
+                  title="Hint (1 per level)"
+                >
+                  <Lightbulb size={14} />
+                </button>
+              )}
+              <RefreshCw size={12} className="cursor-pointer hover:rotate-180 transition shrink-0" onClick={() => startLevel()} />
+            </div>
           </div>
-          <div className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden p-1.5 flex flex-row md:flex-wrap md:content-start gap-1 md:overflow-y-auto md:overflow-x-hidden">
+          <div className="min-h-[100px] md:flex-1 md:min-h-0 overflow-x-auto overflow-y-hidden p-2 md:p-1.5 flex flex-row md:flex-wrap md:content-start gap-2 md:gap-1 md:overflow-y-auto md:overflow-x-hidden">
             {deck.map((item) => <Card key={item.id} item={item} onDragStart={handleDragStart} />)}
             {deck.length === 0 && <span className="text-slate-300 text-[10px] italic">Empty</span>}
           </div>
         </div>
 
-        <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-3 gap-2 overflow-y-auto overflow-x-hidden">
+        <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-2 overflow-y-visible md:overflow-y-auto overflow-x-hidden">
           <MainColumnFixed
             title="Assets"
             borderColorClass="border-blue-500"
@@ -332,6 +408,7 @@ export default function BalanceQuest() {
               { title: "Fixed", type: 'fixedAssets', items: fixedAssets, total: sum(fixedAssets), colorClass: "text-blue-600", bgClass: "bg-blue-50/70" },
             ]}
             onDrop={handleDrop}
+            hintTargetType={hintTargetType}
           />
           <MainColumnFixed
             title="Liabilities"
@@ -342,6 +419,7 @@ export default function BalanceQuest() {
               { title: "Long-term", type: 'longTermLiab', items: longTermLiab, total: sum(longTermLiab), colorClass: "text-orange-600", bgClass: "bg-orange-50/70" },
             ]}
             onDrop={handleDrop}
+            hintTargetType={hintTargetType}
           />
           <MainColumnFixed
             title="Equity"
@@ -352,23 +430,24 @@ export default function BalanceQuest() {
               { title: "Retained & Reserves", type: 'equityRetained', items: equityRetained, total: sum(equityRetained), colorClass: "text-emerald-600", bgClass: "bg-emerald-50/70" },
             ]}
             onDrop={handleDrop}
+            hintTargetType={hintTargetType}
           />
         </div>
       </main>
 
-      {/* Answer overlay when lost */}
-      {gameState === 'lost' && (
+      {/* Answer overlay when lost or "View Answers" after won */}
+      {(gameState === 'lost' || showAnswerReview) && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-3 sm:p-4 overflow-y-auto overscroll-contain">
           <MotionDiv
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden my-auto"
           >
-            <div className="bg-red-500 text-white px-6 py-4">
+            <div className={clsx("text-white px-6 py-4", showAnswerReview ? "bg-emerald-600" : "bg-red-500")}>
               <h2 className="text-xl font-bold flex items-center gap-2">
-                <ShieldAlert size={24} /> Đáp án & Giải thích
+                <BookOpen size={24} /> Answers & Explanation
               </h2>
-              <p className="text-red-100 text-sm mt-1">Cân đối: Assets = Liabilities + Equity</p>
+              <p className="text-white/90 text-sm mt-1">Balance: Assets = Liabilities + Equity</p>
             </div>
             <div className="p-4 sm:p-6 overflow-y-auto max-h-[55vh] sm:max-h-[60vh] space-y-4">
               {(['currentAssets', 'fixedAssets', 'currentLiab', 'longTermLiab', 'equityCapital', 'equityRetained'] as AccountCategory[]).map((cat) => {
@@ -382,36 +461,56 @@ export default function BalanceQuest() {
                     <div className="p-3 space-y-1">
                       {items.map((item) => (
                         <div key={item.id} className="flex justify-between items-center text-sm">
-                          <span><strong>{item.en}</strong> <span className="text-slate-500">({item.vi})</span></span>
+                          <span><strong>{item.en}</strong></span>
                           <span className="font-mono text-slate-600">${item.val.toLocaleString()}</span>
                         </div>
                       ))}
                       <div className="pt-2 border-t font-mono text-xs text-slate-500">
-                        Tổng: ${items.reduce((a, c) => a + c.val, 0).toLocaleString()}
+                        Total: ${items.reduce((a, c) => a + c.val, 0).toLocaleString()}
                       </div>
                     </div>
                   </div>
                 );
               })}
             </div>
-            <div className="p-4 border-t bg-slate-50 flex gap-2 justify-center">
-              <button onClick={() => startLevel()} className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg">
-                Chơi lại
-              </button>
+            <div className="p-4 border-t bg-slate-50 flex gap-2 justify-center flex-wrap">
+              {showAnswerReview ? (
+                <button onClick={() => setShowAnswerReview(false)} className="px-6 py-2 bg-slate-600 hover:bg-slate-700 text-white font-bold rounded-lg">
+                  Close
+                </button>
+              ) : (
+                <button onClick={() => startLevel()} className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg">
+                  Play Again
+                </button>
+              )}
             </div>
           </MotionDiv>
         </div>
       )}
 
-      <footer className={clsx("flex-shrink-0 p-2 sm:p-2 border-t text-center", gameState === 'lost' ? "bg-red-100" : gameState === 'won' ? "bg-green-100" : "bg-white")}>
+      <footer className={clsx("flex-shrink-0 p-4 md:p-2 border-t text-center", gameState === 'lost' ? "bg-red-100" : gameState === 'won' ? "bg-green-100" : "bg-white")}>
+        {wrongDropExplanation && (
+          <div className="mb-2 p-2 bg-amber-50 border border-amber-200 rounded text-left text-xs text-amber-800">
+            <strong>{wrongDropExplanation.card.en}</strong> belongs to {wrongDropExplanation.correctExplain}
+          </div>
+        )}
         <div className={clsx("font-bold text-sm", feedback.type === 'error' ? "text-red-600" : feedback.type === 'success' ? "text-green-600" : "text-slate-600")}>
           {feedback.type === 'error' && <ShieldAlert size={14} className="inline mr-1" />}
           {feedback.type === 'success' && <Swords size={14} className="inline mr-1" />}
           {feedback.msg}
         </div>
         <div className="text-[10px] text-slate-400 font-mono">A: {tA.toLocaleString()} | L+E: {(tL + tE).toLocaleString()}</div>
-        {gameState === 'won' && <button onClick={() => setLevel((l) => l + 1)} className="mt-1 bg-green-600 text-white text-xs font-bold px-4 py-1 rounded">Next</button>}
-        {gameState === 'lost' && <button onClick={() => startLevel()} className="mt-1 bg-red-600 text-white text-xs font-bold px-4 py-1 rounded">Retry</button>}
+        <div className="mt-1 flex gap-2 justify-center flex-wrap">
+          {gameState === 'won' && (
+            <>
+              <button onClick={() => setShowAnswerReview(true)} className="bg-slate-600 hover:bg-slate-700 text-white text-xs font-bold px-4 py-1 rounded flex items-center gap-1">
+                <BookOpen size={12} /> View Answers
+              </button>
+              <button onClick={() => setLevel((l) => l + 1)} className="bg-green-600 hover:bg-green-700 text-white text-xs font-bold px-4 py-1 rounded">Next</button>
+            </>
+          )}
+          {gameState === 'lost' && <button onClick={() => startLevel()} className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 py-1 rounded">Retry</button>}
+        </div>
       </footer>
 
       <style jsx global>{`

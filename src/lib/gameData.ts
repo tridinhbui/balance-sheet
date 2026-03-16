@@ -119,28 +119,28 @@ export type AccountCategory = 'currentAssets' | 'fixedAssets' | 'currentLiab' | 
 
 export const CATEGORY_EXPLANATIONS: Record<AccountCategory, { title: string; explain: string }> = {
   currentAssets: {
-    title: "Current Assets (Tài sản ngắn hạn)",
-    explain: "Tài sản có thể chuyển đổi thành tiền trong vòng 1 năm hoặc 1 chu kỳ kinh doanh. Ví dụ: tiền mặt, hàng tồn kho, phải thu.",
+    title: "Current Assets",
+    explain: "Assets convertible to cash within 1 year or one business cycle. Examples: cash, inventory, receivables.",
   },
   fixedAssets: {
-    title: "Fixed Assets (Tài sản dài hạn)",
-    explain: "Tài sản sử dụng lâu dài (>1 năm): đất đai, nhà xưởng, máy móc, tài sản vô hình (bằng sáng chế, thương hiệu).",
+    title: "Fixed Assets",
+    explain: "Long-term assets (>1 year): land, buildings, machinery, intangible assets (patents, trademarks).",
   },
   currentLiab: {
-    title: "Current Liabilities (Nợ ngắn hạn)",
-    explain: "Nợ phải trả trong vòng 1 năm: phải trả người bán, lương phải trả, vay ngắn hạn, thuế phải nộp.",
+    title: "Current Liabilities",
+    explain: "Obligations due within 1 year: accounts payable, wages payable, short-term debt, taxes payable.",
   },
   longTermLiab: {
-    title: "Long-term Liabilities (Nợ dài hạn)",
-    explain: "Nợ có thời hạn >1 năm: nợ vay dài hạn, trái phiếu, nợ thế chấp, nghĩa vụ thuê tài sản.",
+    title: "Long-term Liabilities",
+    explain: "Obligations due after 1 year: long-term debt, bonds payable, mortgage, lease obligations.",
   },
   equityCapital: {
-    title: "Equity - Capital (Vốn góp)",
-    explain: "Vốn chủ sở hữu từ cổ đông/góp vốn: cổ phiếu phổ thông, cổ phiếu ưu đãi, thặng dư vốn cổ phần.",
+    title: "Equity - Capital",
+    explain: "Owner/stockholder contributions: common stock, preferred stock, paid-in capital.",
   },
   equityRetained: {
-    title: "Equity - Retained & Reserves (LN giữ lại & Quỹ)",
-    explain: "Lợi nhuận giữ lại chưa chia, các quỹ dự trữ, thặng dư đánh giá lại tài sản.",
+    title: "Equity - Retained & Reserves",
+    explain: "Retained earnings, reserves, revaluation surplus.",
   },
 };
 
@@ -150,4 +150,26 @@ export type AccountItem = {
   vi: string;
   cat: AccountCategory;
   val: number;
+};
+
+// Tips shown before each level (rotates by level index)
+export const LEVEL_TIPS: string[] = [
+  "Assets = what the company owns. Split into Current (short-term) and Fixed (long-term).",
+  "Liabilities = what the company owes. Current = due within 1 year, Long-term = due after 1 year.",
+  "Equity = owner's stake. Capital = contributed capital, Retained = earnings & reserves.",
+  "Golden formula: Assets = Liabilities + Equity. The balance sheet always balances!",
+  "Current Assets: cash, inventory, receivables... convertible to cash within 1 year.",
+  "Fixed Assets: land, buildings, machinery, patents... used long-term (>1 year).",
+  "Current Liabilities: accounts payable, wages, short-term debt... due within 1 year.",
+  "Long-term Liabilities: long-term debt, bonds, mortgage... due after 1 year.",
+  "Equity Capital: common stock, preferred stock, paid-in capital.",
+  "Equity Retained: retained earnings, reserves, revaluation surplus.",
+];
+
+export type Difficulty = 'easy' | 'medium' | 'hard';
+
+export const DIFFICULTY_CONFIG: Record<Difficulty, { time: number; lives: number; cardMultiplier: number }> = {
+  easy: { time: 90, lives: 5, cardMultiplier: 0.7 },
+  medium: { time: 120, lives: 3, cardMultiplier: 1 },
+  hard: { time: 90, lives: 2, cardMultiplier: 1.3 },
 };
